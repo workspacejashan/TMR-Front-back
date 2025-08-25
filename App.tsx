@@ -48,8 +48,8 @@ function App() {
     openConnectModal,
     closeConnectModal,
     sendConnectionRequest,
-    // approveConversation, // Assuming these will be added to useChat
-    // denyConversation,
+    approveConversation,
+    denyConversation,
   } = useChat();
 
   const renderContent = () => {
@@ -215,8 +215,8 @@ function App() {
               isOpen={activeModal === ModalType.RECRUITER_REQUESTS}
               onClose={closeModal}
               requests={conversations}
-              onApprove={() => {}}
-              onDeny={() => {}}
+              onApprove={approveConversation}
+              onDeny={denyConversation}
             />
           </>
         )}

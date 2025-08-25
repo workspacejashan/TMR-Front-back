@@ -10,13 +10,13 @@ interface RecruiterMessagesModalProps {
 }
 
 const ConversationMessage: React.FC<{ message: Message }> = ({ message }) => {
-  const isRecruiter = message.author === MessageAuthor.BOT;
-  const messageClass = isRecruiter
+  const isMe = message.author === MessageAuthor.USER;
+  const messageClass = isMe
     ? 'bg-primary text-white self-end rounded-br-none'
     : 'bg-slate-200 dark:bg-dark-border text-text-primary dark:text-dark-text-primary self-start rounded-bl-none';
 
   return (
-    <div className={`w-full flex gap-3 ${isRecruiter ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`w-full flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
       <div className={`w-auto max-w-md`}>
         <div className={`rounded-lg p-3 text-sm ${messageClass}`}>
           <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>

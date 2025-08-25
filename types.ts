@@ -1,6 +1,7 @@
 export enum MessageAuthor {
   USER = 'user',
   BOT = 'bot',
+  PARTICIPANT = 'participant',
 }
 
 export interface Message {

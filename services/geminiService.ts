@@ -1,12 +1,16 @@
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { JobPostDetails, Message } from '../types';
 
-// This file should not be committed with a real API key.
-// It's assumed process.env.API_KEY is configured in the deployment environment.
-const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY ?? process.env.API_KEY;
+// --- TEMPORARY & INSECURE: Hardcoding API Key for development ---
+// WARNING: This is NOT safe for production. Your key is visible in the code.
+// Get a key from Google AI Studio and replace the placeholder below.
+const apiKey = "YOUR_GEMINI_API_KEY_HERE";
+// --- END OF INSECURE CODE ---
+
+// const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY ?? process.env.API_KEY;
 let ai: GoogleGenAI;
 
-if (apiKey) {
+if (apiKey && apiKey !== "YOUR_GEMINI_API_KEY_HERE") {
     ai = new GoogleGenAI({ apiKey });
 } else {
     console.warn(
@@ -14,17 +18,13 @@ if (apiKey) {
     'color: orange; font-weight: bold; font-size: 14px;',
     `
 The application will not connect to the Gemini API.
-Please create a '.env' file in the root of your project and add your Gemini API key:
-  
-  VITE_GEMINI_API_KEY=your-api-key
-
-You can get a key from Google AI Studio.`
+Please get a key from Google AI Studio and add it directly into 'services/geminiService.ts'.`
   );
 }
 
 
 export const geminiService = {
-  isConfigured: !!apiKey,
+  isConfigured: !!(apiKey && apiKey !== "YOUR_GEMINI_API_KEY_HERE"),
 
   getChatResponse: async (history: Message[], systemInstruction: string): Promise<string> => {
     if (!ai) return "The AI service is not configured.";

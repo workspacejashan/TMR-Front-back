@@ -74,6 +74,7 @@ Stores metadata for files uploaded by candidates.
 
 **`conversations`**
 Represents a chat thread between a recruiter and a candidate.
+> **Note:** Enable "Realtime" for this table in the Supabase dashboard (`Database > Realtime`) to allow live updates for conversation status changes (e.g., pending to accepted).
 
 | Column     | Type      | Constraints                               | Notes                                                       |
 | ---------- | --------- | ----------------------------------------- | ----------------------------------------------------------- |
@@ -92,6 +93,7 @@ A join table linking users to conversations.
 
 **`messages`**
 Stores each individual message within a conversation.
+> **Note:** Enable "Realtime" for this table in the Supabase dashboard (`Database > Realtime`) so the frontend can subscribe to new messages.
 
 | Column           | Type      | Constraints                          | Notes                                    |
 | ---------------- | --------- | ------------------------------------ | ---------------------------------------- |
@@ -288,12 +290,19 @@ Enable RLS on all tables and create policies to ensure users can only access the
       AND visibility IN ('public', 'gated')
     );
     ```
-*   **`conversations`, `conversation_participants`, `messages`:**
+*   **Messaging Tables:**
     ```sql
-    -- Users can only access conversations they are part of.
+    -- `conversations` Table
     create policy "Allow access to own conversations" on conversations for all
     using (id in (select conversation_id from conversation_participants where user_id = auth.uid()));
-    -- Similar policies for the other two tables, ensuring auth.uid() is in the participant list for the relevant conversation.
+
+    -- `conversation_participants` Table
+    create policy "Allow access to own participant entries" on conversation_participants for all
+    using (user_id = auth.uid() OR conversation_id in (select conversation_id from conversation_participants where user_id = auth.uid()));
+
+    -- `messages` Table
+    create policy "Allow access to messages in own conversations" on messages for all
+    using (conversation_id in (select conversation_id from conversation_participants where user_id = auth.uid()));
     ```
 
 ---

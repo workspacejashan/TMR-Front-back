@@ -13,6 +13,7 @@ import RecruiterDashboard from './components/RecruiterDashboard';
 import RecruiterMessagesModal from './components/modals/RecruiterMessagesModal';
 import ConnectRequestModal from './components/modals/ConnectRequestModal';
 import CandidateMessagesModal from './components/modals/CandidateMessagesModal';
+import JobDetailsModal from './components/modals/JobDetailsModal';
 import { useChat } from './hooks/useChat';
 import { ModalType, UserType } from './types';
 
@@ -21,6 +22,7 @@ function App() {
     messages,
     recruiterMessages,
     isLoading,
+    isJobsLoading,
     activeModal,
     userType,
     currentUser,
@@ -28,11 +30,15 @@ function App() {
     selectedCandidate,
     candidateToConnect,
     conversations,
+    suggestedJobs,
+    selectedJob,
     quickActions,
     authError,
     sendMessage,
     openModal,
     closeModal,
+    openJobDetailsModal,
+    closeJobDetailsModal,
     handleSignUp,
     handleLogin,
     handleAction,
@@ -53,10 +59,6 @@ function App() {
   } = useChat();
 
   const renderContent = () => {
-    if (isLoading && !currentUser) {
-      return <div className="h-full w-full bg-background dark:bg-dark-background flex items-center justify-center"><div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-primary rounded-full animate-spin"></div></div>;
-    }
-
     switch (userType) {
       case UserType.RECRUITER:
         return <RecruiterDashboard 
@@ -82,6 +84,16 @@ function App() {
         return <div className="h-full w-full bg-background dark:bg-dark-background"></div>;
     }
   };
+  
+  // Display a full-screen loading spinner during the initial session/profile fetch.
+  // This prevents any UI flicker before the app knows what state to render.
+  if (isLoading) {
+    return (
+      <div className="h-[100dvh] w-screen bg-background dark:bg-dark-background flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -224,6 +236,9 @@ function App() {
         <SuggestedJobsModal
           isOpen={activeModal === ModalType.SUGGESTED_JOBS}
           onClose={closeModal}
+          jobs={suggestedJobs}
+          isLoading={isJobsLoading}
+          openJobDetailsModal={openJobDetailsModal}
         />
 
         <PublicProfileModal
@@ -250,6 +265,12 @@ function App() {
                 onSend={(message) => sendConnectionRequest(candidateToConnect.id, message)}
             />
         )}
+        
+        <JobDetailsModal 
+            isOpen={!!selectedJob}
+            onClose={closeJobDetailsModal}
+            job={selectedJob}
+        />
 
       </div>
     </>

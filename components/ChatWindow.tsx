@@ -70,7 +70,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, sendMessag
         <div ref={messagesEndRef} />
       </div>
        {quickActions && quickActions.length > 0 && (
-        <QuickActionsBar actions={quickActions} onActionClick={onActionClick} />
+        <QuickActionsBar actions={quickActions} onActionClick={onActionClick} isLoading={isLoading} />
       )}
       <div className={`p-4 bg-surface dark:bg-dark-surface ${!quickActions || quickActions.length === 0 ? 'border-t border-border dark:border-dark-border' : ''}`}>
         <div className="relative">

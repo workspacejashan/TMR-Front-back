@@ -113,3 +113,13 @@ export interface Conversation {
   messages: Message[];
   lastMessageAt: string; // This will be derived client-side
 }
+
+// Represents a job listing from an external API
+export interface Job {
+    id: string;
+    title: string;
+    company: string;
+    location: string;
+    description: string;
+    applyUrl: string;
+}

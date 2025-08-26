@@ -1,46 +1,64 @@
 import React from 'react';
 import Modal from '../Modal';
-
-// Mock data
-const mockJobs = [
-    { id: 1, title: 'Registered Nurse (ICU)', company: 'City General Hospital', location: 'New York, NY', url: '#' },
-    { id: 2, title: 'Travel Nurse - ER', company: 'Cross Country Nurses', location: 'San Francisco, CA (Remote option)', url: '#' },
-    { id: 3, title: 'Pediatric Nurse Practitioner', company: 'Children\'s Health Center', location: 'Chicago, IL', url: '#' },
-    { id: 4, title: 'Clinical Nurse Specialist', company: 'State University Hospital', location: 'Austin, TX', url: '#' },
-];
-
+import { Job } from '../../types';
+import { BuildingOfficeIcon, GlobeAltIcon } from '../icons/Icons';
 
 interface SuggestedJobsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  jobs: Job[];
+  isLoading: boolean;
+  openJobDetailsModal: (job: Job) => void;
 }
 
-const SuggestedJobsModal: React.FC<SuggestedJobsModalProps> = ({ isOpen, onClose }) => {
+const SuggestedJobsModal: React.FC<SuggestedJobsModalProps> = ({ isOpen, onClose, jobs, isLoading, openJobDetailsModal }) => {
+    
+    const renderContent = () => {
+        if (isLoading) {
+            return (
+                <div className="flex flex-col items-center justify-center h-64">
+                    <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
+                    <p className="mt-4 text-sm text-text-secondary dark:text-dark-text-secondary">Searching for job matches...</p>
+                </div>
+            );
+        }
+
+        if (jobs.length > 0) {
+            return jobs.map(job => (
+                 <div key={job.id} className="bg-background dark:bg-dark-surface p-4 rounded-lg border border-border dark:border-dark-border animate-fade-in-up transition-all hover:shadow-lg hover:border-primary/50 hover:scale-[1.02]">
+                    <div className="flex justify-between items-start gap-4">
+                        <div>
+                            <h3 className="font-semibold text-text-primary dark:text-dark-text-primary">{job.title}</h3>
+                            <p className="text-sm text-primary dark:text-primary-light flex items-center gap-1.5"><BuildingOfficeIcon className="w-4 h-4" /> {job.company}</p>
+                            <p className="mt-1 text-xs text-text-secondary dark:text-dark-text-secondary">{job.location}</p>
+                        </div>
+                         <button 
+                            onClick={() => openJobDetailsModal(job)}
+                            className="bg-primary-gradient text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all duration-300 whitespace-nowrap transform hover:scale-105 shadow-md"
+                         >
+                            View Job
+                         </button>
+                    </div>
+                </div>
+            ));
+        }
+
+        return (
+             <div className="text-center py-10">
+                <h3 className="font-semibold text-text-primary dark:text-dark-text-primary">No Job Suggestions Found</h3>
+                <p className="text-sm text-text-secondary dark:text-dark-text-secondary mt-1">
+                    We couldn't find any jobs matching your current preferences.
+                    <br />
+                    Try updating your "Job Preferences" to see more results.
+                </p>
+            </div>
+        )
+    };
     
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Suggested Jobs">
+        <Modal isOpen={isOpen} onClose={onClose} title="Suggested Jobs For You" maxWidth="max-w-2xl">
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 -mr-3">
-                {mockJobs.length > 0 ? mockJobs.map(job => (
-                     <div key={job.id} className="bg-background dark:bg-dark-surface p-4 rounded-lg border border-border dark:border-dark-border animate-fade-in-up transition-all hover:shadow-lg hover:border-primary/50 hover:scale-[1.02]">
-                        <div className="flex justify-between items-start gap-4">
-                            <div>
-                                <h3 className="font-semibold text-text-primary dark:text-dark-text-primary">{job.title}</h3>
-                                <p className="text-sm text-primary dark:text-primary-light">{job.company}</p>
-                                <p className="mt-1 text-xs text-text-secondary dark:text-dark-text-secondary">{job.location}</p>
-                            </div>
-                             <a 
-                                href={job.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="bg-primary-gradient text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all duration-300 whitespace-nowrap transform hover:scale-105 shadow-md"
-                             >
-                                View Job
-                             </a>
-                        </div>
-                    </div>
-                )) : (
-                    <p className="text-center text-text-secondary dark:text-dark-text-secondary">No job suggestions at the moment. Check back later!</p>
-                )}
+                {renderContent()}
             </div>
             <div className="pt-6">
                 <button

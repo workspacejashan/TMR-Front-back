@@ -4,9 +4,10 @@ import { Action } from '../types';
 interface QuickActionsBarProps {
   actions: Action[];
   onActionClick: (action: Action) => void;
+  isLoading: boolean;
 }
 
-const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ actions, onActionClick }) => {
+const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ actions, onActionClick, isLoading }) => {
   if (actions.length === 0) {
     return null;
   }
@@ -18,10 +19,11 @@ const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ actions, onActionClic
           <button
             key={index}
             onClick={() => onActionClick(action)}
+            disabled={isLoading && action.type !== 'logout'}
             className={
                 action.type === 'logout'
-                ? "bg-red-100 hover:bg-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 text-red-700 dark:text-red-300 font-semibold py-2 px-4 rounded-full text-sm transition-colors whitespace-nowrap shadow-sm hover:shadow-md"
-                : "bg-slate-100 dark:bg-dark-border hover:bg-slate-200 dark:hover:bg-slate-700 text-text-primary dark:text-dark-text-primary font-semibold py-2 px-4 rounded-full text-sm transition-colors whitespace-nowrap shadow-sm hover:shadow-md"
+                ? "bg-red-100 hover:bg-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 text-red-700 dark:text-red-300 font-semibold py-2 px-4 rounded-full text-sm transition-colors whitespace-nowrap shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                : "bg-slate-100 dark:bg-dark-border hover:bg-slate-200 dark:hover:bg-slate-700 text-text-primary dark:text-dark-text-primary font-semibold py-2 px-4 rounded-full text-sm transition-colors whitespace-nowrap shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             }
           >
             {action.label}

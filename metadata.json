@@ -1,5 +1,5 @@
 {
-  "name": "ThatsMyRecruiter-backend",
+  "name": "ThatsMyRecruiter-full stack",
   "description": "A personal AI recruiter for candidates, managing all interactions through a streamlined chat interface. Candidates control their profile, documents, and availability, while recruiters get a clear, consent-first communication channel.",
   "requestFramePermissions": []
 }

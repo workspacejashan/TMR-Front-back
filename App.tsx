@@ -14,6 +14,7 @@ import RecruiterMessagesModal from './components/modals/RecruiterMessagesModal';
 import ConnectRequestModal from './components/modals/ConnectRequestModal';
 import CandidateMessagesModal from './components/modals/CandidateMessagesModal';
 import JobDetailsModal from './components/modals/JobDetailsModal';
+import FindCandidatesModal from './components/modals/FindCandidatesModal';
 import { useChat } from './hooks/useChat';
 import { ModalType, UserType } from './types';
 
@@ -23,6 +24,7 @@ function App() {
     recruiterMessages,
     isLoading,
     isJobsLoading,
+    isFindingCandidates,
     activeModal,
     userType,
     currentUser,
@@ -34,6 +36,7 @@ function App() {
     selectedJob,
     quickActions,
     authError,
+    jobPostDetails,
     sendMessage,
     openModal,
     closeModal,
@@ -56,6 +59,7 @@ function App() {
     sendConnectionRequest,
     approveConversation,
     denyConversation,
+    findCandidates,
   } = useChat();
 
   const renderContent = () => {
@@ -87,7 +91,7 @@ function App() {
   
   // Display a full-screen loading spinner during the initial session/profile fetch.
   // This prevents any UI flicker before the app knows what state to render.
-  if (isLoading) {
+  if (isLoading && !currentUser && activeModal !== ModalType.AUTH) {
     return (
       <div className="h-[100dvh] w-screen bg-background dark:bg-dark-background flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-primary rounded-full animate-spin"></div>
@@ -257,9 +261,19 @@ function App() {
             onSendMessage={sendChatMessage}
         />
 
+        {userType === UserType.RECRUITER && (
+          <FindCandidatesModal
+            isOpen={activeModal === ModalType.FIND_CANDIDATES_FLOW}
+            onClose={closeModal}
+            initialDetails={jobPostDetails}
+            onSearch={findCandidates}
+            isSearching={isFindingCandidates}
+          />
+        )}
+
         {candidateToConnect && (
             <ConnectRequestModal
-                isOpen={activeModal === ModalType.CONNECT_REQUEST}
+                isOpen={!!candidateToConnect}
                 onClose={closeConnectModal}
                 candidate={candidateToConnect}
                 onSend={(message) => sendConnectionRequest(candidateToConnect.id, message)}

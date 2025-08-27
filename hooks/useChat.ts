@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Message, MessageAuthor, ModalType, UserType, CandidateProfile, JobPostDetails, Conversation, Action, Skill, UploadedFile, DocumentVisibility, Job } from '../types';
-import { geminiService } from '../services/geminiService';
+import { aiService } from '../services/geminiService';
 import { jobSearchService } from '../services/jobSearchService';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { AuthError, Session, RealtimeChannel } from '@supabase/supabase-js';
@@ -24,24 +24,27 @@ const recruiterQuickActions: Action[] = [
 ];
 
 const candidateSystemInstruction = `You are a friendly and professional AI recruiter for a job candidate. Your goal is to help them build their profile and find a job.
-You can trigger actions for the user. When you identify an intent to perform an action, you MUST include the corresponding action object in your JSON response. Do not perform actions for simple greetings.
-- If the user wants to see their public profile, use: { "type": "open_modal", "payload": { "modalType": "PUBLIC_PROFILE" } }
-- If the user wants to see their messages, use: { "type": "open_modal", "payload": { "modalType": "CANDIDATE_MESSAGES" } }
-- If the user wants to see recruiter requests, use: { "type": "open_modal", "payload": { "modalType": "RECRUITER_REQUESTS" } }
-- If the user wants to see suggested jobs, use: { "type": "open_modal", "payload": { "modalType": "SUGGESTED_JOBS" } }
-- If the user wants to manage documents, use: { "type": "open_modal", "payload": { "modalType": "DOCUMENTS_UPLOAD" } }
-- If the user wants to manage skills, use: { "type": "open_modal", "payload": { "modalType": "SKILLS_ASSESSMENT" } }
-- If the user wants to set availability, use: { "type": "open_modal", "payload": { "modalType": "AVAILABILITY" } }
-- If the user wants to set job preferences, use: { "type": "open_modal", "payload": { "modalType": "JOB_PREFERENCES" } }
+You can trigger actions for the user. When you identify an intent to perform an action, you use the corresponding action object. Do not perform actions for simple greetings.
+- If the user wants to see their public profile, use action: { "type": "open_modal", "payload": { "modalType": "PUBLIC_PROFILE" } }
+- If the user wants to see their messages, use action: { "type": "open_modal", "payload": { "modalType": "CANDIDATE_MESSAGES" } }
+- If the user wants to see recruiter requests, use action: { "type": "open_modal", "payload": { "modalType": "RECRUITER_REQUESTS" } }
+- If the user wants to see suggested jobs, use action: { "type": "open_modal", "payload": { "modalType": "SUGGESTED_JOBS" } }
+- If the user wants to manage documents, use action: { "type": "open_modal", "payload": { "modalType": "DOCUMENTS_UPLOAD" } }
+- If the user wants to manage skills, use action: { "type": "open_modal", "payload": { "modalType": "SKILLS_ASSESSMENT" } }
+- If the user wants to set availability, use action: { "type": "open_modal", "payload": { "modalType": "AVAILABILITY" } }
+- If the user wants to set job preferences, use action: { "type": "open_modal", "payload": { "modalType": "JOB_PREFERENCES" } }
 
-Always provide a friendly text confirmation before the action. For example, if they ask to see messages, you could say "Sure, here are your messages." and then include the action object.`;
+You MUST ALWAYS respond with a single valid JSON object. This object must have two keys: "text" (your friendly text response) and "action" (the action object if one is triggered, otherwise null).
+Example response: { "text": "Sure, here are your messages.", "action": { "type": "open_modal", "payload": { "modalType": "CANDIDATE_MESSAGES" } } }
+Example without action: { "text": "Hello! How can I help you today?", "action": null }`;
 
 const recruiterSystemInstruction = `You are a helpful assistant for a recruiter. Keep your answers concise.
-You can trigger actions for the user. When you identify an intent to perform an action, you MUST include the corresponding action object in your JSON response.
-- If the user wants to search for candidates, use: { "type": "start_flow", "payload": { "flowName": "find_candidates" } }
-- If the user wants to view messages, use: { "type": "open_modal", "payload": { "modalType": "RECRUITER_MESSAGES" } }
+You can trigger actions for the user. When you identify an intent to perform an action, you use the corresponding action object.
+- If the user wants to search for candidates, use action: { "type": "start_flow", "payload": { "flowName": "find_candidates" } }
+- If the user wants to view messages, use action: { "type": "open_modal", "payload": { "modalType": "RECRUITER_MESSAGES" } }
 
-Always provide a friendly text confirmation before the action. For example, if they ask to search, you could say "Of course, let's start a new search." and then include the action object.`;
+You MUST ALWAYS respond with a single valid JSON object. This object must have two keys: "text" (your friendly text response) and "action" (the action object if one is triggered, otherwise null).
+Example response: { "text": "Of course, let's start a new search.", "action": { "type": "start_flow", "payload": { "flowName": "find_candidates" } } }`;
 
 
 export const useChat = () => {
@@ -64,6 +67,7 @@ export const useChat = () => {
   const [foundCandidates, setFoundCandidates] = useState<CandidateProfile[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [candidateToConnect, setCandidateToConnect] = useState<CandidateProfile | null>(null);
+  const [isFindingCandidates, setIsFindingCandidates] = useState(false);
   
   // Recruiter find candidates flow state
   const [jobPostDetails, setJobPostDetails] = useState<Partial<JobPostDetails>>({});
@@ -90,7 +94,13 @@ export const useChat = () => {
   }, []);
 
   const handleOpenModal = useCallback((modalType: ModalType) => setActiveModal(modalType), []);
-  const handleCloseModal = useCallback(() => setActiveModal(ModalType.NONE), []);
+  const handleCloseModal = useCallback(() => {
+    setActiveModal(ModalType.NONE);
+    if(jobPostFlow.active) {
+        setJobPostFlow({ active: false, step: 0 });
+        setJobPostDetails({});
+    }
+  }, [jobPostFlow.active]);
 
   const getSuggestedJobs = useCallback(async () => {
     if (!currentUser?.roles?.length) return;
@@ -120,8 +130,42 @@ export const useChat = () => {
         handleLogout();
     } else if (action.type === 'start_flow' && action.payload?.flowName === 'find_candidates') {
         setJobPostFlow({ active: true, step: 1 });
+        setActiveModal(ModalType.FIND_CANDIDATES_FLOW);
     }
   }, [handleOpenModal, getSuggestedJobs, handleLogout]);
+
+  const findCandidates = useCallback(async (details: JobPostDetails) => {
+    if (!isSupabaseConfigured) {
+        addMessage(MessageAuthor.BOT, "This feature requires a backend connection.", [], 'recruiter');
+        return;
+    }
+    setIsFindingCandidates(true);
+    addMessage(MessageAuthor.BOT, `Searching for candidates matching your criteria...`, [], 'recruiter');
+
+    const { data, error } = await supabase.rpc('search_candidates', {
+        p_skills: details.skills || [],
+        p_location: details.location || null
+    });
+
+    if (error) {
+        console.error("Error searching for candidates:", error);
+        addMessage(MessageAuthor.BOT, "Sorry, I encountered an error while searching.", [], 'recruiter');
+        setFoundCandidates([]);
+    } else if (data) {
+        // The RPC returns user_profiles, we need to fetch skills for each to match CandidateProfile type
+        const profilesWithDetails = await Promise.all(data.map(async (profile: any) => {
+            const { data: skills } = await supabase.from('skills').select('*').eq('user_id', profile.id);
+            const { data: documents } = await supabase.from('documents').select('*').eq('user_id', profile.id);
+            return { ...profile, skills: skills || [], documents: documents || [] };
+        }));
+
+        setFoundCandidates(profilesWithDetails as CandidateProfile[]);
+        addMessage(MessageAuthor.BOT, `I've found ${profilesWithDetails.length} candidate(s). You can view them in the Candidates panel.`, [], 'recruiter');
+    }
+    
+    setIsFindingCandidates(false);
+    handleCloseModal();
+  }, [addMessage, handleCloseModal]);
 
   const sendMessage = useCallback(async (text: string) => {
     const isRecruiter = userType === UserType.RECRUITER;
@@ -132,8 +176,18 @@ export const useChat = () => {
     addMessage(MessageAuthor.USER, text, [], target);
     setIsLoading(true);
 
-    if (geminiService.isConfigured) {
-      const response = await geminiService.getChatResponse([...history, {id: 'temp', author: MessageAuthor.USER, text}], instruction);
+    if (aiService.isConfigured) {
+      if (isRecruiter && (jobPostFlow.active || text.toLowerCase().includes('find candidate') || text.toLowerCase().includes('search for'))) {
+            addMessage(MessageAuthor.BOT, "I can help with that. Let's refine the details for the role you're looking for.", [], 'recruiter');
+            const criteria = await aiService.extractJobCriteria(text);
+            setJobPostDetails(criteria);
+            // FIX: The 'label' property was missing from the Action object.
+            handleAction({ label: 'Start Find Candidates Flow', type: 'start_flow', payload: { flowName: 'find_candidates' } });
+            setIsLoading(false);
+            return;
+      }
+
+      const response = await aiService.getChatResponse([...history, {id: 'temp', author: MessageAuthor.USER, text}], instruction);
       addMessage(MessageAuthor.BOT, response.text, response.action ? [response.action] : [], target);
       if (response.action) {
         handleAction(response.action);
@@ -143,7 +197,7 @@ export const useChat = () => {
     }
     
     setIsLoading(false);
-  }, [messages, recruiterMessages, userType, addMessage, handleAction]);
+  }, [messages, recruiterMessages, userType, addMessage, handleAction, jobPostFlow.active]);
 
   const fetchUserProfile = useCallback(async (session: Session) => {
     if (!isSupabaseConfigured) return;
@@ -287,6 +341,7 @@ export const useChat = () => {
     recruiterMessages,
     isLoading,
     isJobsLoading,
+    isFindingCandidates,
     activeModal,
     userType,
     currentUser,
@@ -298,6 +353,7 @@ export const useChat = () => {
     selectedJob,
     quickActions,
     authError,
+    jobPostDetails,
     sendMessage,
     openModal: handleOpenModal,
     closeModal: handleCloseModal,
@@ -320,5 +376,6 @@ export const useChat = () => {
     sendConnectionRequest,
     approveConversation,
     denyConversation,
+    findCandidates,
   };
 };

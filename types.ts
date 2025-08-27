@@ -45,6 +45,7 @@ export enum ModalType {
   FOUND_CANDIDATES,
   CONNECT_REQUEST,
   CANDIDATE_MESSAGES,
+  FIND_CANDIDATES_FLOW,
 }
 
 // Corresponds to the `user_profiles` table
@@ -122,4 +123,10 @@ export interface Job {
     location: string;
     description: string;
     applyUrl: string;
+}
+
+// FIX: Added JobSearchCriteria to fix import error in geminiService.
+export interface JobSearchCriteria {
+    roles: string[];
+    location: string;
 }

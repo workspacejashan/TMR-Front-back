@@ -1,173 +1,126 @@
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { Job, JobPostDetails, Message, Action, MessageAuthor } from '../types';
+import { Job, JobPostDetails, Message, Action, MessageAuthor, JobSearchCriteria } from '../types';
 
 interface AiChatResponse {
   text: string;
   action?: Action;
 }
 
-// API_KEY is expected to be set in the environment.
-const API_KEY = process.env.API_KEY;
+// Using OpenRouter API as requested
+const OPENROUTER_API_KEY = "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";
+const MODEL_NAME = "meta-llama/llama-3-8b-instruct";
+const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// Initialize the Google GenAI client. Null if API_KEY is not available.
-const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
-
-// The schema for the AI's chat response.
-const chatResponseSchema = {
-    type: Type.OBJECT,
-    properties: {
-        text: { type: Type.STRING, description: 'Your conversational response.' },
-        action: {
-            type: Type.OBJECT,
-            nullable: true,
-            properties: {
-                type: { type: Type.STRING, description: 'The type of action to perform.' },
-                payload: {
-                    type: Type.OBJECT,
-                    nullable: true,
-                    properties: {
-                        modalType: { type: Type.STRING, nullable: true, description: 'The modal to open.' },
-                        flowName: { type: Type.STRING, nullable: true, description: 'The flow to start.' },
-                    },
-                },
-            },
-        },
-    },
-    required: ['text'],
-};
-
-// The schema for extracting job criteria from a prompt.
-const jobCriteriaSchema = {
-    type: Type.OBJECT,
-    properties: {
-        title: { type: Type.STRING, description: 'The job title.' },
-        skills: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-            description: 'An array of key skills for the job.'
-        },
-        location: { type: Type.STRING, description: 'The job location.' },
-    },
-    required: ['title', 'skills', 'location'],
-};
-
-// The schema for generating a list of fictional jobs.
-const jobsListSchema = {
-    type: Type.OBJECT,
-    properties: {
-        jobs: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    id: { type: Type.STRING, description: 'A random unique string ID.' },
-                    title: { type: Type.STRING },
-                    company: { type: Type.STRING, description: 'A plausible but generic company name.' },
-                    location: { type: Type.STRING },
-                    description: { type: Type.STRING, description: 'A 2-3 sentence summary of the job.' },
-                    applyUrl: { type: Type.STRING, description: 'A placeholder URL like "https://example.com/apply/job-id".' },
-                },
-                required: ['id', 'title', 'company', 'location', 'description', 'applyUrl'],
-            },
-        },
-    },
-    required: ['jobs'],
-};
-
-export const geminiService = {
-  isConfigured: !!ai,
-
-  getChatResponse: async (history: Message[], systemInstruction: string): Promise<AiChatResponse> => {
-    if (!ai) return { text: "The AI service is not configured." };
-
-    const contents = history.map(msg => ({
-        role: msg.author === MessageAuthor.USER ? 'user' : 'model',
-        parts: [{ text: msg.text }]
-    }));
-
+const callApi = async (messages: {role: 'system' | 'user' | 'assistant', content: string}[]) => {
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents,
-            config: {
-                systemInstruction: systemInstruction,
-                responseMimeType: "application/json",
-                responseSchema: chatResponseSchema,
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                'Content-Type': 'application/json',
             },
+            body: JSON.stringify({
+                model: MODEL_NAME,
+                messages: messages,
+                response_format: { type: "json_object" },
+            }),
         });
-
-        const jsonStr = response.text.trim();
-        const parsedResponse = JSON.parse(jsonStr) as AiChatResponse;
-
-        if (typeof parsedResponse.text !== 'string') {
-            return { text: "Sorry, I received an invalid response from the AI." };
+        
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error('OpenRouter API Error:', response.status, errorBody);
+            return null;
         }
 
-        return parsedResponse;
-
-    } catch (e) {
-        console.error("Error calling Gemini API:", e);
-        return { text: "Sorry, I encountered an error connecting to the AI service."};
+        const data = await response.json();
+        const content = data.choices[0]?.message?.content;
+        if (content) {
+            // The model is instructed to return a JSON string, so we parse it.
+            return JSON.parse(content);
+        }
+        return null;
+    } catch (error) {
+        console.error("Error calling OpenRouter API:", error);
+        return null;
     }
-  },
+}
 
-  extractJobCriteria: async (prompt: string): Promise<Partial<JobPostDetails>> => {
-      if (!ai) return {};
-      
-      const systemInstruction = `You are an expert data extractor. Extract the job title, key skills, and location from the user's request. If a piece of information is missing, use an empty string or empty array.`;
-      
-      try {
-          const response: GenerateContentResponse = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents: prompt,
-              config: {
-                  systemInstruction: systemInstruction,
-                  responseMimeType: "application/json",
-                  responseSchema: jobCriteriaSchema,
-              },
-          });
-          
-          const jsonStr = response.text.trim();
-          return JSON.parse(jsonStr);
-          
-      } catch (e) {
-          console.error("Error parsing or fetching from Gemini API:", e);
-          return {};
-      }
-  },
 
-  findJobsWithAi: async (criteria: { roles: string[]; location: string; }): Promise<Job[]> => {
-    if (!ai) return [];
+const getChatResponse = async (history: Message[], systemInstruction: string): Promise<AiChatResponse> => {
+    const messages = [
+        { role: 'system' as const, content: systemInstruction },
+        ...history.map(msg => ({
+            role: msg.author === MessageAuthor.USER ? 'user' as const : 'assistant' as const,
+            content: msg.text
+        }))
+    ];
 
-    const query = `${criteria.roles.join(', ')} jobs in ${criteria.location || 'USA'}`;
-    const userPrompt = `Generate up to 5 realistic, plausible, but fictional job postings based on the user's query. These jobs should seem real but are for demonstration purposes.
-    - Invent plausible but generic company names (e.g., "Innovate Health", "Tech Solutions Inc.").
-    - "applyUrl" should be a placeholder like "https://example.com/apply/job-id".
+    const responseJson = await callApi(messages);
+
+    if (responseJson && typeof responseJson.text === 'string') {
+        return {
+            text: responseJson.text,
+            action: responseJson.action || undefined
+        };
+    }
     
-    User Query: "${query}"`;
+    return { text: "Sorry, I couldn't process that. Please try again." };
+};
 
-    try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: userPrompt,
-            config: {
-                systemInstruction: "You are an expert job search assistant.",
-                responseMimeType: "application/json",
-                responseSchema: jobsListSchema,
-            },
-        });
+const extractJobCriteria = async (text: string): Promise<Partial<JobPostDetails>> => {
+    const systemInstruction = `You are an AI assistant that extracts job criteria from a user's text.
+    Analyze the text and identify the job title, key skills, and location.
+    Respond with a JSON object containing three keys: "title", "skills" (an array of strings), and "location".
+    If a field is not mentioned, its value should be an empty string or an empty array.
+    Example: for "find me a registered nurse in texas with iv insertion skills", you would return:
+    { "title": "Registered Nurse", "skills": ["IV insertion"], "location": "Texas" }`;
+    
+    const messages = [
+        { role: 'system' as const, content: systemInstruction },
+        { role: 'user' as const, content: text }
+    ];
 
-        const jsonStr = response.text.trim();
-        const parsedResponse = JSON.parse(jsonStr);
+    const responseJson = await callApi(messages);
 
-        if (parsedResponse && Array.isArray(parsedResponse.jobs)) {
-            return parsedResponse.jobs as Job[];
-        }
-        return [];
-
-    } catch (e) {
-      console.error("Error finding jobs with AI:", e);
-      return [];
+    if (responseJson && (responseJson.title || responseJson.skills || responseJson.location)) {
+        return {
+            title: responseJson.title || '',
+            skills: responseJson.skills || [],
+            location: responseJson.location || ''
+        };
     }
-  },
+
+    return {};
+};
+
+const findJobsWithAi = async (criteria: JobSearchCriteria): Promise<Job[]> => {
+    const systemInstruction = `You are an AI that generates realistic, mock job listings for a job board.
+    Based on the user's criteria, create a list of 5 job postings.
+    You MUST respond with a single JSON object containing a key "jobs", which is an array of job objects.
+    Each job object must have the following properties: "id" (a unique string, e.g., "job-1"), "title", "company", "location", "description", and "applyUrl" (use a placeholder like "https://example.com/apply").
+    The job descriptions should be detailed and relevant to the role.`;
+    
+    const userPrompt = `Generate 5 job listings for the following criteria:
+    Roles: ${criteria.roles.join(', ')}
+    Location: ${criteria.location}`;
+
+    const messages = [
+        { role: 'system' as const, content: systemInstruction },
+        { role: 'user' as const, content: userPrompt }
+    ];
+
+    const responseJson = await callApi(messages);
+
+    if (responseJson && Array.isArray(responseJson.jobs)) {
+        return responseJson.jobs;
+    }
+    
+    return [];
+};
+
+
+export const aiService = {
+  isConfigured: !!OPENROUTER_API_KEY,
+  getChatResponse,
+  extractJobCriteria,
+  findJobsWithAi,
 };

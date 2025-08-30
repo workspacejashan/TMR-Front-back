@@ -3,11 +3,12 @@ import { Action } from '../types';
 
 interface QuickActionsBarProps {
   actions: Action[];
-  onActionClick: (action: Action) => void;
+  onActionClick: (action: Action) => void; // For direct actions like logout
+  onSendMessage: (text: string) => void; // For conversational actions
   isLoading: boolean;
 }
 
-const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ actions, onActionClick, isLoading }) => {
+const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ actions, onActionClick, onSendMessage, isLoading }) => {
   if (actions.length === 0) {
     return null;
   }
@@ -18,7 +19,13 @@ const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ actions, onActionClic
         {actions.map((action, index) => (
           <button
             key={index}
-            onClick={() => onActionClick(action)}
+            onClick={() => {
+              if (action.type === 'logout') {
+                onActionClick(action);
+              } else if (action.label) {
+                onSendMessage(action.label);
+              }
+            }}
             disabled={isLoading && action.type !== 'logout'}
             className={
                 action.type === 'logout'

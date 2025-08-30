@@ -1,7 +1,6 @@
 import React, { useState, useRef, ChangeEvent } from 'react';
 import Modal from '../Modal';
 import { CandidateProfile } from '../../types';
-import { supabase } from '../../services/supabaseClient';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -23,21 +22,10 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose, curr
       const file = e.target.files[0];
       setIsUploading(true);
       
-      // Upload to Supabase Storage
-      const filePath = `public/${currentUser.id}/profile-photo-${Date.now()}`;
-      const { error } = await supabase.storage.from('profile-photos').upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
-
-      if (error) {
-        console.error("Error uploading photo:", error);
-        setIsUploading(false);
-        return;
-      }
-      
-      const { data } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
-      setPhoto(data.publicUrl);
+      // Simulate upload delay and use a local blob URL for preview
+      await new Promise(res => setTimeout(res, 1000));
+      const localUrl = URL.createObjectURL(file);
+      setPhoto(localUrl);
       setIsUploading(false);
     }
   };

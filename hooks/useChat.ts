@@ -2,8 +2,54 @@ import { useState, useCallback, useEffect } from 'react';
 import { Message, MessageAuthor, ModalType, UserType, CandidateProfile, JobPostDetails, Conversation, Action, Skill, UploadedFile, DocumentVisibility, Job } from '../types';
 import { aiService } from '../services/geminiService';
 import { jobSearchService } from '../services/jobSearchService';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
-import { AuthError, Session, RealtimeChannel } from '@supabase/supabase-js';
+import { mockCandidates } from '../data/mockCandidates'; // For recruiter search
+import { mockConversations } from '../data/mockConversations';
+
+// Mock data for the logged-in candidate user
+const mockCandidateUser: CandidateProfile = {
+    id: 'mock-user',
+    user_type: UserType.CANDIDATE,
+    email: 'alex.doe@example.com',
+    name: 'Alex Doe',
+    title: 'Registered Nurse',
+    profile_photo_url: 'https://i.pravatar.cc/150?u=alex_doe',
+    roles: ['Registered Nurse'],
+    shift: 'Day Shift',
+    location: 'Austin, TX',
+    pay_expectations: '$75 - $100 / hour',
+    contact_methods: ['call', 'text'],
+    time_zone: 'America/Chicago',
+    working_hours: '9:00 AM - 5:00 PM (Mon-Fri)',
+    call_available_hours: 'After Work (5pm - 7pm)',
+    skills: [
+        { name: 'IV Insertion', level: 4 },
+        { name: 'Patient Care', level: 3 },
+    ],
+    documents: [
+        { 
+            id: 'doc-mock-1', 
+            name: 'Resume_AlexDoe.pdf', 
+            size: 132000, 
+            type: 'pdf', 
+            visibility: 'public', 
+            file_path: '/mock/resume.pdf',
+            url: '#'
+        },
+    ]
+};
+
+const mockRecruiterUser = {
+    id: 'mock-recruiter',
+    user_type: UserType.RECRUITER,
+    email: 'recruiter@example.com',
+    name: 'Sam Jones',
+    title: 'Talent Acquisition Specialist',
+    profile_photo_url: 'https://i.pravatar.cc/150?u=sam_jones',
+    skills: [],
+    documents: [],
+    roles: null, shift: null, location: null, pay_expectations: null, contact_methods: null, time_zone: null, working_hours: null, call_available_hours: null,
+};
+
 
 const candidateQuickActions: Action[] = [
     { label: "View Public Profile", type: 'open_modal', payload: { modalType: ModalType.PUBLIC_PROFILE } },
@@ -33,6 +79,7 @@ You can trigger actions for the user. When you identify an intent to perform an 
 - If the user wants to manage skills, use action: { "type": "open_modal", "payload": { "modalType": "SKILLS_ASSESSMENT" } }
 - If the user wants to set availability, use action: { "type": "open_modal", "payload": { "modalType": "AVAILABILITY" } }
 - If the user wants to set job preferences, use action: { "type": "open_modal", "payload": { "modalType": "JOB_PREFERENCES" } }
+- If the user wants to log out, use action: { "type": "logout" }
 
 You MUST ALWAYS respond with a single valid JSON object. This object must have two keys: "text" (your friendly text response) and "action" (the action object if one is triggered, otherwise null).
 Example response: { "text": "Sure, here are your messages.", "action": { "type": "open_modal", "payload": { "modalType": "CANDIDATE_MESSAGES" } } }
@@ -42,6 +89,7 @@ const recruiterSystemInstruction = `You are a helpful assistant for a recruiter.
 You can trigger actions for the user. When you identify an intent to perform an action, you use the corresponding action object.
 - If the user wants to search for candidates, use action: { "type": "start_flow", "payload": { "flowName": "find_candidates" } }
 - If the user wants to view messages, use action: { "type": "open_modal", "payload": { "modalType": "RECRUITER_MESSAGES" } }
+- If the user wants to log out, use action: { "type": "logout" }
 
 You MUST ALWAYS respond with a single valid JSON object. This object must have two keys: "text" (your friendly text response) and "action" (the action object if one is triggered, otherwise null).
 Example response: { "text": "Of course, let's start a new search.", "action": { "type": "start_flow", "payload": { "flowName": "find_candidates" } } }`;
@@ -49,21 +97,20 @@ Example response: { "text": "Of course, let's start a new search.", "action": { 
 
 export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [activeModal, setActiveModal] = useState<ModalType>(ModalType.NONE);
   const [userType, setUserType] = useState<UserType>(UserType.GUEST);
   const [quickActions, setQuickActions] = useState<Action[]>([]);
-  const [authError, setAuthError] = useState<string | null>(null);
-
+  
   // For Candidate user
   const [currentUser, setCurrentUser] = useState<CandidateProfile | null>(null);
   const [suggestedJobs, setSuggestedJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isJobsLoading, setIsJobsLoading] = useState(false);
-
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  
   // For Recruiter user
   const [recruiterMessages, setRecruiterMessages] = useState<Message[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [foundCandidates, setFoundCandidates] = useState<CandidateProfile[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateProfile | null>(null);
   const [candidateToConnect, setCandidateToConnect] = useState<CandidateProfile | null>(null);
@@ -71,10 +118,6 @@ export const useChat = () => {
   
   // Recruiter find candidates flow state
   const [jobPostDetails, setJobPostDetails] = useState<Partial<JobPostDetails>>({});
-  const [jobPostFlow, setJobPostFlow] = useState({ active: false, step: 0 });
-
-  // Real-time messaging state
-  const [messageListener, setMessageListener] = useState<RealtimeChannel | null>(null);
   
   const openJobDetailsModal = useCallback((job: Job) => {
     setSelectedJob(job);
@@ -94,13 +137,7 @@ export const useChat = () => {
   }, []);
 
   const handleOpenModal = useCallback((modalType: ModalType) => setActiveModal(modalType), []);
-  const handleCloseModal = useCallback(() => {
-    setActiveModal(ModalType.NONE);
-    if(jobPostFlow.active) {
-        setJobPostFlow({ active: false, step: 0 });
-        setJobPostDetails({});
-    }
-  }, [jobPostFlow.active]);
+  const handleCloseModal = useCallback(() => setActiveModal(ModalType.NONE), []);
 
   const getSuggestedJobs = useCallback(async () => {
     if (!currentUser?.roles?.length) return;
@@ -111,8 +148,6 @@ export const useChat = () => {
   }, [currentUser]);
 
   const handleLogout = useCallback(async () => {
-    if (!isSupabaseConfigured) return;
-    await supabase.auth.signOut();
     setCurrentUser(null);
     setUserType(UserType.GUEST);
     setMessages([]);
@@ -129,182 +164,163 @@ export const useChat = () => {
     } else if (action.type === 'logout') {
         handleLogout();
     } else if (action.type === 'start_flow' && action.payload?.flowName === 'find_candidates') {
-        setJobPostFlow({ active: true, step: 1 });
         setActiveModal(ModalType.FIND_CANDIDATES_FLOW);
     }
   }, [handleOpenModal, getSuggestedJobs, handleLogout]);
-
+  
   const findCandidates = useCallback(async (details: JobPostDetails) => {
-    if (!isSupabaseConfigured) {
-        addMessage(MessageAuthor.BOT, "This feature requires a backend connection.", [], 'recruiter');
-        return;
-    }
     setIsFindingCandidates(true);
-    addMessage(MessageAuthor.BOT, `Searching for candidates matching your criteria...`, [], 'recruiter');
+    addMessage(MessageAuthor.BOT, `Searching for mock candidates matching your criteria...`, [], 'recruiter');
+    
+    // Simulate network delay
+    await new Promise(res => setTimeout(res, 1500));
 
-    const { data, error } = await supabase.rpc('search_candidates', {
-        p_skills: details.skills || [],
-        p_location: details.location || null
+    const results = mockCandidates.filter(candidate => {
+        const locationMatch = !details.location || candidate.location?.toLowerCase().includes(details.location.toLowerCase());
+        const skillMatch = !details.skills || details.skills.length === 0 || details.skills.some(skill => 
+            candidate.skills.some(cs => cs.name.toLowerCase().includes(skill.toLowerCase()))
+        );
+        return locationMatch && skillMatch;
     });
 
-    if (error) {
-        console.error("Error searching for candidates:", error);
-        addMessage(MessageAuthor.BOT, "Sorry, I encountered an error while searching.", [], 'recruiter');
-        setFoundCandidates([]);
-    } else if (data) {
-        // The RPC returns user_profiles, we need to fetch skills for each to match CandidateProfile type
-        const profilesWithDetails = await Promise.all(data.map(async (profile: any) => {
-            const { data: skills } = await supabase.from('skills').select('*').eq('user_id', profile.id);
-            const { data: documents } = await supabase.from('documents').select('*').eq('user_id', profile.id);
-            return { ...profile, skills: skills || [], documents: documents || [] };
-        }));
-
-        setFoundCandidates(profilesWithDetails as CandidateProfile[]);
-        addMessage(MessageAuthor.BOT, `I've found ${profilesWithDetails.length} candidate(s). You can view them in the Candidates panel.`, [], 'recruiter');
-    }
+    setFoundCandidates(results);
+    addMessage(MessageAuthor.BOT, `I've found ${results.length} candidate(s). You can view them in the Candidates panel.`, [], 'recruiter');
     
     setIsFindingCandidates(false);
     handleCloseModal();
   }, [addMessage, handleCloseModal]);
-
+  
   const sendMessage = useCallback(async (text: string) => {
     const isRecruiter = userType === UserType.RECRUITER;
     const target = isRecruiter ? 'recruiter' : 'candidate';
     const history = isRecruiter ? recruiterMessages : messages;
     const instruction = isRecruiter ? recruiterSystemInstruction : candidateSystemInstruction;
+    const actions = isRecruiter ? recruiterQuickActions : candidateQuickActions;
 
     addMessage(MessageAuthor.USER, text, [], target);
     setIsLoading(true);
 
+    // Check if the user's message exactly matches a quick action label.
+    const quickAction = actions.find(a => a.label === text);
+
+    if (quickAction) {
+      // If it's a quick action, provide a canned response and execute the action directly, skipping the AI call.
+      const responseMap: { [key: string]: string } = {
+        "View Public Profile": "Of course. Here is your public profile.",
+        "Messages": "Opening your messages.",
+        "Recruiter Requests": "Here are the current requests from recruiters.",
+        "Jobs": "Let's find some jobs that match your profile.",
+        "Documents": "Opening your document manager.",
+        "Skills": "Here are your skills. You can manage them here.",
+        "Set Availability": "Let's set your availability preferences.",
+        "Job Preferences": "Here are your job preferences.",
+        "Search for Candidates": "Let's start a new search for candidates.",
+        "View Messages": "Opening your messages.",
+      };
+
+      const botResponseText = responseMap[text] || `Opening ${text.toLowerCase()}...`;
+      
+      addMessage(MessageAuthor.BOT, botResponseText, [], target);
+      
+      // Delay to allow the user to read the message before the modal opens.
+      await new Promise(resolve => setTimeout(resolve, 900));
+      
+      handleAction(quickAction);
+      
+      setIsLoading(false);
+      return; // Stop further execution
+    }
+
+    // The rest of the function handles non-quick-action messages with an AI call.
     if (aiService.isConfigured) {
-      if (isRecruiter && (jobPostFlow.active || text.toLowerCase().includes('find candidate') || text.toLowerCase().includes('search for'))) {
+      if (isRecruiter && (text.toLowerCase().includes('find candidate') || text.toLowerCase().includes('search for'))) {
             addMessage(MessageAuthor.BOT, "I can help with that. Let's refine the details for the role you're looking for.", [], 'recruiter');
             const criteria = await aiService.extractJobCriteria(text);
             setJobPostDetails(criteria);
-            // FIX: The 'label' property was missing from the Action object.
-            handleAction({ label: 'Start Find Candidates Flow', type: 'start_flow', payload: { flowName: 'find_candidates' } });
+            handleAction({ type: 'start_flow', payload: { flowName: 'find_candidates' } });
             setIsLoading(false);
             return;
       }
 
       const response = await aiService.getChatResponse([...history, {id: 'temp', author: MessageAuthor.USER, text}], instruction);
-      addMessage(MessageAuthor.BOT, response.text, response.action ? [response.action] : [], target);
+      addMessage(MessageAuthor.BOT, response.text, [], target);
       if (response.action) {
         handleAction(response.action);
       }
     } else {
-      addMessage(MessageAuthor.BOT, "AI is not configured.", [], target);
+      addMessage(MessageAuthor.BOT, "AI is not configured. Please set an API_KEY.", [], target);
     }
     
     setIsLoading(false);
-  }, [messages, recruiterMessages, userType, addMessage, handleAction, jobPostFlow.active]);
-
-  const fetchUserProfile = useCallback(async (session: Session) => {
-    if (!isSupabaseConfigured) return;
-    const { data: profile, error } = await supabase
-        .from('user_profiles')
-        .select(`*, skills (*), documents (*)`)
-        .eq('id', session.user.id)
-        .single();
-    
-    if (error) {
-        console.error("Error fetching profile:", error);
-        handleLogout();
-        return;
-    }
-    
-    if (profile) {
-        setCurrentUser(profile as CandidateProfile);
-        setUserType(profile.user_type as UserType);
-        
-        if (profile.user_type === UserType.CANDIDATE) {
-            if (!profile.name || !profile.title) {
-                setActiveModal(ModalType.ONBOARDING_PROFILE);
-            } else {
-                addMessage(MessageAuthor.BOT, `Welcome back, ${profile.name}! What can I help you with today?`, candidateQuickActions);
-            }
-        } else if (profile.user_type === UserType.RECRUITER) {
-             addMessage(MessageAuthor.BOT, `Welcome back, ${profile.name}! What can I help you with?`, recruiterQuickActions, 'recruiter');
-        }
-    }
-  }, [addMessage, handleLogout]);
-
-  const initializeSession = useCallback(async () => {
-    if (isSupabaseConfigured) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            await fetchUserProfile(session);
-        } else {
-            setActiveModal(ModalType.AUTH);
-        }
-    } else {
-        setUserType(UserType.CANDIDATE);
-        addMessage(MessageAuthor.BOT, "Welcome! Since the app isn't connected to a backend, we'll proceed with a mock profile. What can I help you with?", candidateQuickActions);
-        setCurrentUser({ id: 'mock-user', user_type: UserType.CANDIDATE, email: 'mock@user.com', name: 'Alex Doe', title: 'Registered Nurse', skills: [], documents: [], profile_photo_url: null, roles: null, shift: null, location: null, pay_expectations: null, contact_methods: null, time_zone: null, working_hours: null, call_available_hours: null });
-    }
-    setIsLoading(false);
-  }, [fetchUserProfile, addMessage]);
+  }, [messages, recruiterMessages, userType, addMessage, handleAction]);
   
-  // Other functions...
+  const handleLoginAs = (type: UserType, isGettingStarted = false) => {
+      setUserType(type);
+      setActiveModal(ModalType.NONE);
+
+      const target = type === UserType.RECRUITER ? 'recruiter' : 'candidate';
+      const user = type === UserType.CANDIDATE ? mockCandidateUser : mockRecruiterUser;
+      
+      setCurrentUser(user as CandidateProfile);
+      setConversations(mockConversations);
+
+      if (isGettingStarted) {
+        if (type === UserType.CANDIDATE) {
+          addMessage(MessageAuthor.BOT, `Welcome! Let's get your profile set up so recruiters can find you.`, [], target);
+          // Add a small delay for the message to be read, then open the onboarding modal.
+          setTimeout(() => {
+              handleOpenModal(ModalType.ONBOARDING_PROFILE);
+          }, 1200);
+        } else { // Recruiter
+           addMessage(MessageAuthor.BOT, `Welcome! Let's get you set up to find the best candidates.`, [], target);
+           addMessage(MessageAuthor.BOT, `You can start by using the "Search for Candidates" action below.`, [], target);
+        }
+      } else { // Regular login
+        addMessage(MessageAuthor.BOT, `Welcome back, ${user.name}! What can I help you with today?`, [], target);
+      }
+  };
+  
+  useEffect(() => {
+    // On initial load, show the auth/selection modal.
+    setActiveModal(ModalType.AUTH);
+  }, []);
+  
   const updateProfile = async (profileData: Partial<CandidateProfile>) => {
-      if (!currentUser || !isSupabaseConfigured) return;
-      const { data, error } = await supabase.from('user_profiles').update(profileData).eq('id', currentUser.id).select().single();
-      if (data) setCurrentUser(prev => ({ ...prev!, ...data }));
+      if (!currentUser) return;
+      setCurrentUser(prev => ({ ...prev!, ...profileData }));
   };
   
   const updateSkills = async (newSkills: Skill[]) => {
-      if (!currentUser || !isSupabaseConfigured) return;
-      await supabase.from('skills').delete().eq('user_id', currentUser.id);
-      await supabase.from('skills').insert(newSkills.map(s => ({...s, user_id: currentUser.id })));
+      if (!currentUser) return;
       setCurrentUser(prev => ({...prev!, skills: newSkills}));
   };
 
   const uploadFile = async (file: File): Promise<UploadedFile | null> => {
-      if (!currentUser || !isSupabaseConfigured) return null;
-      const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
-      await supabase.storage.from('documents').upload(filePath, file);
-      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
-      const newDocument = { user_id: currentUser.id, name: file.name, size: file.size, type: file.type.split('/')[1] || 'file', file_path: filePath, visibility: 'private' as DocumentVisibility, url: urlData.publicUrl };
-      const { data, error } = await supabase.from('documents').insert(newDocument).select().single();
-      if (data) {
-        setCurrentUser(prev => ({...prev!, documents: [...prev!.documents, data]}));
-        return data;
-      }
-      return null;
+      if (!currentUser) return null;
+      const newDocument: UploadedFile = {
+        id: `doc-mock-${Date.now()}`,
+        user_id: currentUser.id,
+        name: file.name,
+        size: file.size,
+        type: file.type.split('/')[1] || 'file',
+        file_path: `mock/${file.name}`,
+        visibility: 'private' as DocumentVisibility,
+        url: URL.createObjectURL(file) // Create a temporary local URL for preview
+      };
+      setCurrentUser(prev => ({...prev!, documents: [...prev!.documents, newDocument]}));
+      return newDocument;
   };
   
   const deleteFile = async (fileId: string) => {
-      if (!currentUser || !isSupabaseConfigured) return;
-      const fileToDelete = currentUser.documents.find(d => d.id === fileId);
-      if (!fileToDelete) return;
-      await supabase.storage.from('documents').remove([fileToDelete.file_path]);
-      await supabase.from('documents').delete().eq('id', fileId);
+      if (!currentUser) return;
       setCurrentUser(prev => ({...prev!, documents: prev!.documents.filter(d => d.id !== fileId)}));
   };
   
   const updateFileVisibility = async (fileId: string, visibility: DocumentVisibility) => {
-    if (!currentUser || !isSupabaseConfigured) return;
-    await supabase.from('documents').update({ visibility }).eq('id', fileId);
+    if (!currentUser) return;
     setCurrentUser(prev => ({...prev!, documents: prev!.documents.map(d => d.id === fileId ? {...d, visibility} : d)}));
   };
   
-  const handleAuthAction = async (authPromise: Promise<{ data: { session: Session | null }, error: AuthError | null }>) => {
-    setAuthError(null);
-    const { data, error } = await authPromise;
-    if (error) {
-      setAuthError(error.message);
-      return error;
-    }
-    if (data.session) {
-      await fetchUserProfile(data.session);
-      setActiveModal(ModalType.NONE);
-    }
-    return null;
-  };
-
-  const handleSignUp = (email: string, password: string, userType: UserType) => handleAuthAction(supabase.auth.signUp({ email, password, options: { data: { user_type: userType } } }));
-  const handleLogin = (email: string, password: string) => handleAuthAction(supabase.auth.signInWithPassword({ email, password }));
-
   // Dummy implementations for recruiter/messaging logic
   const sendChatMessage = (id:string, text:string) => console.log('sendChatMessage', id, text);
   const sendCandidateMessage = (id:string, text:string) => console.log('sendCandidateMessage', id, text);
@@ -312,23 +328,19 @@ export const useChat = () => {
   const closeCandidateProfile = () => setSelectedCandidate(null);
   const openConnectModal = (c: CandidateProfile) => setCandidateToConnect(c);
   const closeConnectModal = () => setCandidateToConnect(null);
-  const sendConnectionRequest = (id:string, msg:string) => console.log('sendConnectionRequest', id, msg);
-  const approveConversation = (id:string) => console.log('approveConversation', id);
-  const denyConversation = (id:string) => console.log('denyConversation', id);
-
-
-  useEffect(() => {
-    initializeSession();
-
-    if (isSupabaseConfigured) {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (!session) {
-                handleLogout();
-            }
-        });
-        return () => subscription.unsubscribe();
-    }
-  }, [initializeSession, handleLogout]);
+  const sendConnectionRequest = (id:string, msg:string) => {
+      console.log('sendConnectionRequest', id, msg);
+      closeConnectModal();
+      addMessage(MessageAuthor.BOT, `Your connection request has been sent.`, [], 'recruiter');
+  };
+  const approveConversation = (id:string) => {
+      console.log('approveConversation', id);
+      setConversations(convos => convos.map(c => c.id === id ? {...c, status: 'accepted'} : c));
+  };
+  const denyConversation = (id:string) => {
+      console.log('denyConversation', id);
+      setConversations(convos => convos.filter(c => c.id !== id));
+  };
 
   useEffect(() => {
     if(userType === UserType.CANDIDATE) setQuickActions(candidateQuickActions);
@@ -352,15 +364,13 @@ export const useChat = () => {
     suggestedJobs,
     selectedJob,
     quickActions,
-    authError,
     jobPostDetails,
     sendMessage,
     openModal: handleOpenModal,
     closeModal: handleCloseModal,
     openJobDetailsModal,
     closeJobDetailsModal,
-    handleSignUp,
-    handleLogin,
+    handleLoginAs,
     handleAction,
     updateProfile,
     updateSkills,

@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { ReactNode, useEffect, useState, useRef } from 'react';
 import { CloseIcon } from './icons/Icons';
 
 interface ModalProps {
@@ -13,16 +13,20 @@ interface ModalProps {
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = 'max-w-md', showCloseButton = true, contentClassName = 'p-6' }) => {
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
+  const prevIsOpen = useRef(isOpen);
 
   useEffect(() => {
-    if (!isOpen) {
+    // Only run animation when closing the modal
+    if (prevIsOpen.current && !isOpen) {
       setIsAnimatingOut(true);
       const timer = setTimeout(() => {
         setIsAnimatingOut(false);
-      }, 350); // Must match animation duration
+      }, 350); // Match animation duration
       return () => clearTimeout(timer);
     }
+    prevIsOpen.current = isOpen;
   }, [isOpen]);
+
 
   if (!isOpen && !isAnimatingOut) return null;
 

@@ -32,6 +32,7 @@ const CandidateMessagesModal: React.FC<CandidateMessagesModalProps> = ({ isOpen,
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevIsOpen = useRef(isOpen);
   
   const selectedConvo = conversations.find(c => c.id === selectedConvoId);
 
@@ -40,27 +41,31 @@ const CandidateMessagesModal: React.FC<CandidateMessagesModalProps> = ({ isOpen,
   }, [selectedConvo?.messages]);
   
   useEffect(() => {
-    if (!isOpen) {
-        setSelectedConvoId(null);
+    if (prevIsOpen.current && !isOpen) {
+        // Animate out
+        setIsAnimatingOut(true);
+        const timer = setTimeout(() => {
+            setIsAnimatingOut(false);
+            document.body.style.overflow = '';
+            setSelectedConvoId(null);
+        }, 350);
+        return () => clearTimeout(timer);
     }
-  }, [isOpen]);
-
-  useEffect(() => {
+    
     if (isOpen) {
         document.body.style.overflow = 'hidden';
         setIsAnimatingOut(false);
         if (selectedConvoId) {
           inputRef.current?.focus();
         }
-    } else {
-        setIsAnimatingOut(true);
-        const timer = setTimeout(() => {
-            setIsAnimatingOut(false);
-            document.body.style.overflow = '';
-        }, 350);
-        return () => clearTimeout(timer);
     }
-    return () => { document.body.style.overflow = ''; };
+
+    prevIsOpen.current = isOpen;
+    
+    return () => {
+        // Unmount cleanup
+        document.body.style.overflow = '';
+    };
   }, [isOpen, selectedConvoId]);
 
   const handleSend = () => {

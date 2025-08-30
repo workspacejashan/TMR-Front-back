@@ -16,7 +16,7 @@ export interface Message {
 }
 
 export interface Action {
-  label:string;
+  label?:string;
   type: 'open_modal' | 'start_flow' | 'logout';
   payload?: {
     modalType?: ModalType;

@@ -1,177 +1,223 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
-import { BotIcon, GoogleIcon, ArrowLeftIcon, BriefcaseIcon } from '../icons/Icons';
+import { BotIcon, BriefcaseIcon, ArrowLeftIcon } from '../icons/Icons';
 import { UserType } from '../../types';
-import { AuthError } from '@supabase/supabase-js';
 
 interface AuthModalProps {
   isOpen: boolean;
-  onLogin: (email: string, password: string) => Promise<AuthError | null>;
-  onSignUp: (email: string, password: string, userType: UserType) => Promise<AuthError | null>;
-  error: string | null;
+  onLoginAs: (userType: UserType, isGettingStarted?: boolean) => void;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onLogin, onSignUp, error }) => {
-  const [view, setView] = useState<'initial' | 'login' | 'signup'>('initial');
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onLoginAs }) => {
+  const [view, setView] = useState<'initial' | 'getStarted' | 'login'>('initial');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedUserType, setSelectedUserType] = useState<UserType>(UserType.CANDIDATE);
-  const [isLoading, setIsLoading] = useState(false);
-
-
+  const [error, setError] = useState('');
+  const [selectedRole, setSelectedRole] = useState<UserType | null>(null);
+  
+  useEffect(() => {
+    if (isOpen) {
+      setView('initial');
+      setEmail('');
+      setPassword('');
+      setError('');
+      setSelectedRole(null);
+    }
+  }, [isOpen]);
+  
   const handleNoOp = () => {};
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    await onLogin(email, password);
-    setIsLoading(false);
+  const handleLogin = () => {
+    setError('');
+    // Mock login logic for the demo
+    if (email.toLowerCase() === 'alex.doe@example.com') {
+      onLoginAs(UserType.CANDIDATE, false);
+    } else if (email.toLowerCase() === 'recruiter@example.com') {
+      onLoginAs(UserType.RECRUITER, false);
+    } else {
+      setError('Invalid credentials. Use "alex.doe@example.com" (candidate) or "recruiter@example.com" (recruiter).');
+    }
   };
   
-  const handleSignUpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    await onSignUp(email, password, selectedUserType);
-    setIsLoading(false);
+  const handleGetStarted = () => {
+    if (email && password && selectedRole) {
+      onLoginAs(selectedRole, true);
+    }
   };
 
-  const resetForm = () => {
-    setEmail('');
-    setPassword('');
-    setIsLoading(false);
-  };
-
-  const changeView = (newView: 'initial' | 'login' | 'signup') => {
-    resetForm();
-    setView(newView);
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, action: 'login' | 'getStarted') => {
+    if (e.key === 'Enter') {
+      if (action === 'login') {
+        handleLogin();
+      } else if (action === 'getStarted' && email && password && selectedRole) {
+        handleGetStarted();
+      }
+    }
   };
   
+  const renderInitialView = () => (
+    <div className="text-center animate-fade-in-up py-4">
+        <div className="flex justify-center mb-6">
+            <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-full">
+                <BotIcon className="w-10 h-10 text-primary" />
+            </div>
+        </div>
+        <h2 className="text-2xl font-bold text-text-primary dark:text-dark-text-primary">Your Personal AI Recruiter</h2>
+        <p className="mt-2 text-text-secondary dark:text-dark-text-secondary">
+          The all-in-one platform to manage your career or find top talent.
+        </p>
+        <div className="mt-8 space-y-4">
+            <button
+                onClick={() => setView('getStarted')}
+                className="w-full bg-primary-gradient text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg shadow-md"
+            >
+                Get Started
+            </button>
+            <button
+                onClick={() => setView('login')}
+                className="w-full bg-slate-100 dark:bg-dark-border hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-slate-500/30 transition-all duration-300"
+            >
+                Login
+            </button>
+        </div>
+    </div>
+  );
+
+  const renderGetStartedView = () => (
+    <div className="animate-fade-in-up py-4 space-y-6">
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="get-started-email" className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-1.5">Email Address</label>
+          <input
+            type="email"
+            id="get-started-email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyPress={(e) => handleKeyPress(e, 'getStarted')}
+            className="block w-full bg-background dark:bg-dark-surface border-border dark:border-dark-border rounded-lg shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface dark:focus:ring-offset-dark-surface focus:ring-primary focus:border-primary sm:text-sm p-3 transition"
+            placeholder="your.email@example.com"
+          />
+        </div>
+        <div>
+          <label htmlFor="get-started-password" className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-1.5">Password</label>
+          <input
+            type="password"
+            id="get-started-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyPress={(e) => handleKeyPress(e, 'getStarted')}
+            className="block w-full bg-background dark:bg-dark-surface border-border dark:border-dark-border rounded-lg shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface dark:focus:ring-offset-dark-surface focus:ring-primary focus:border-primary sm:text-sm p-3 transition"
+            placeholder="Create a password"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-2">Select your role</label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setSelectedRole(UserType.CANDIDATE)}
+              className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 text-sm font-semibold transition-all duration-200 transform hover:scale-105 ${
+                selectedRole === UserType.CANDIDATE
+                    ? 'border-primary bg-primary/10 dark:bg-primary/20 text-primary-dark dark:text-primary-light shadow-inner'
+                    : 'border-border dark:border-dark-border bg-white dark:bg-dark-surface/50 hover:border-slate-400 dark:hover:border-slate-500'
+              }`}
+            >
+              <i className="fa fa-user"></i>
+              <span>Candidate</span>
+            </button>
+            <button
+              onClick={() => setSelectedRole(UserType.RECRUITER)}
+              className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 text-sm font-semibold transition-all duration-200 transform hover:scale-105 ${
+                selectedRole === UserType.RECRUITER
+                    ? 'border-primary bg-primary/10 dark:bg-primary/20 text-primary-dark dark:text-primary-light shadow-inner'
+                    : 'border-border dark:border-dark-border bg-white dark:bg-dark-surface/50 hover:border-slate-400 dark:hover:border-slate-500'
+              }`}
+            >
+              <BriefcaseIcon className="w-5 h-5"/>
+              <span>Recruiter</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="pt-2">
+        <button
+          onClick={handleGetStarted}
+          disabled={!email || !password || !selectedRole}
+          className="w-full bg-primary-gradient text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg shadow-md disabled:bg-slate-400 disabled:dark:bg-slate-600 disabled:transform-none disabled:shadow-none disabled:cursor-not-allowed"
+        >
+          Create Account
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderLoginView = () => (
+     <div className="animate-fade-in-up py-4 space-y-6">
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-1.5">Email Address</label>
+          <input
+            type="email"
+            id="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyPress={(e) => handleKeyPress(e, 'login')}
+            className="block w-full bg-background dark:bg-dark-surface border-border dark:border-dark-border rounded-lg shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface dark:focus:ring-offset-dark-surface focus:ring-primary focus:border-primary sm:text-sm p-3 transition"
+            placeholder="alex.doe@example.com"
+          />
+        </div>
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-1.5">Password</label>
+          <input
+            type="password"
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyPress={(e) => handleKeyPress(e, 'login')}
+            className="block w-full bg-background dark:bg-dark-surface border-border dark:border-dark-border rounded-lg shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface dark:focus:ring-offset-dark-surface focus:ring-primary focus:border-primary sm:text-sm p-3 transition"
+            placeholder="Password (any)"
+          />
+        </div>
+        {error && <p className="text-red-500 text-xs text-center pt-1">{error}</p>}
+      </div>
+       <div className="pt-2">
+            <button
+                onClick={handleLogin}
+                className="w-full bg-primary-gradient text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg shadow-md"
+            >
+                Login
+            </button>
+        </div>
+    </div>
+  );
+
   const getTitle = () => {
     switch(view) {
-        case 'login': return 'Welcome Back';
-        case 'signup': return 'Create Your Account';
-        default: return 'Welcome!';
+      case 'getStarted': return 'Join the Network';
+      case 'login': return 'Welcome Back!';
+      case 'initial':
+      default: return 'Welcome to ThatsMyRecruiter';
     }
+  };
+
+  const handleBack = () => {
+    setView('initial');
+    setError('');
+    setEmail('');
+    setPassword('');
+    setSelectedRole(null);
   };
 
   return (
     <Modal isOpen={isOpen} onClose={handleNoOp} title={getTitle()} showCloseButton={false}>
-        <div className="relative">
+       <div className="relative">
             {view !== 'initial' && (
-                <button 
-                    onClick={() => changeView('initial')} 
-                    className="absolute -top-3 -left-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"
-                    aria-label="Go back"
-                >
-                    <ArrowLeftIcon className="w-5 h-5" />
+                <button onClick={handleBack} className="absolute -top-4 -left-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 z-10">
+                    <ArrowLeftIcon className="w-5 h-5"/>
                 </button>
             )}
-
-            {view === 'initial' && (
-                <div className="text-center animate-fade-in-up py-4">
-                    <div className="flex justify-center mb-6">
-                        <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-full">
-                            <BotIcon className="w-10 h-10 text-primary" />
-                        </div>
-                    </div>
-                    <h2 className="text-2xl font-bold text-text-primary dark:text-dark-text-primary">Your Personal AI Recruiter</h2>
-                    <p className="mt-2 text-text-secondary dark:text-dark-text-secondary">
-                    I'm here to manage your job search, so you don't have to.
-                    </p>
-                    <div className="mt-8 space-y-4">
-                    <button
-                        onClick={() => changeView('signup')}
-                        className="w-full bg-primary-gradient text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg shadow-md"
-                    >
-                        Get Started
-                    </button>
-                    <button
-                        onClick={() => changeView('login')}
-                        className="w-full bg-slate-100 dark:bg-dark-border hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-slate-500/30 transition-all duration-300 transform hover:scale-105"
-                    >
-                        Login
-                    </button>
-                    </div>
-                </div>
-            )}
-            
-            {(view === 'login' || view === 'signup') && error && (
-                <div className="bg-red-100 dark:bg-red-500/20 border-l-4 border-red-500 text-red-700 dark:text-red-300 p-4 rounded-r-lg mb-4 text-sm" role="alert">
-                    <p>{error}</p>
-                </div>
-            )}
-            
-            {view === 'login' && (
-                <div className="space-y-6 animate-fade-in-up">
-                    <form onSubmit={handleLoginSubmit} className="space-y-4">
-                        <div>
-                            <label htmlFor="login-email" className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-1.5">Email</label>
-                            <input type="email" id="login-email" value={email} onChange={e => setEmail(e.target.value)} required className="block w-full bg-background dark:bg-dark-surface border-border dark:border-dark-border rounded-lg shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface dark:focus:ring-offset-dark-surface focus:ring-primary focus:border-primary sm:text-sm p-3 transition" placeholder="you@example.com" />
-                        </div>
-                        <div>
-                            <label htmlFor="login-password" className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-1.5">Password</label>
-                            <input type="password" id="login-password" value={password} onChange={e => setPassword(e.target.value)} required className="block w-full bg-background dark:bg-dark-surface border-border dark:border-dark-border rounded-lg shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface dark:focus:ring-offset-dark-surface focus:ring-primary focus:border-primary sm:text-sm p-3 transition" placeholder="••••••••" />
-                        </div>
-                        <button type="submit" disabled={isLoading} className="w-full bg-primary-gradient text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-300 transform hover:scale-105 shadow-md disabled:bg-slate-400 disabled:transform-none disabled:shadow-none">
-                            {isLoading ? 'Logging in...' : 'Login'}
-                        </button>
-                    </form>
-                    <p className="text-center text-sm text-text-secondary dark:text-dark-text-secondary">
-                        Don't have an account? <button onClick={() => changeView('signup')} className="font-semibold text-primary hover:text-primary-light">Sign Up</button>
-                    </p>
-                </div>
-            )}
-            
-            {view === 'signup' && (
-                 <div className="space-y-6 animate-fade-in-up">
-                    <form onSubmit={handleSignUpSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-2">I am a...</label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedUserType(UserType.CANDIDATE)}
-                                    className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 text-sm font-semibold transition-all duration-200 transform hover:scale-105 ${
-                                        selectedUserType === UserType.CANDIDATE
-                                            ? 'border-primary bg-primary/10 dark:bg-primary/20 text-primary-dark dark:text-primary-light shadow-inner'
-                                            : 'border-border dark:border-dark-border bg-white dark:bg-dark-surface/50 hover:border-slate-400 dark:hover:border-slate-500'
-                                    }`}
-                                >
-                                    <i className="fa fa-user text-2xl"></i>
-                                    <span>Candidate</span>
-                                </button>
-                                 <button
-                                    type="button"
-                                    onClick={() => setSelectedUserType(UserType.RECRUITER)}
-                                    className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 text-sm font-semibold transition-all duration-200 transform hover:scale-105 ${
-                                        selectedUserType === UserType.RECRUITER
-                                            ? 'border-secondary bg-secondary/10 dark:bg-secondary/20 text-secondary dark:text-secondary/80 shadow-inner'
-                                            : 'border-border dark:border-dark-border bg-white dark:bg-dark-surface/50 hover:border-slate-400 dark:hover:border-slate-500'
-                                    }`}
-                                >
-                                    <BriefcaseIcon className="w-8 h-8"/>
-                                    <span>Recruiter</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label htmlFor="signup-email" className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-1.5">Email</label>
-                            <input type="email" id="signup-email" value={email} onChange={e => setEmail(e.target.value)} required className="block w-full bg-background dark:bg-dark-surface border-border dark:border-dark-border rounded-lg shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface dark:focus:ring-offset-dark-surface focus:ring-primary focus:border-primary sm:text-sm p-3 transition" placeholder="you@example.com" />
-                        </div>
-                        <div>
-                            <label htmlFor="signup-password" className="block text-sm font-medium text-text-secondary dark:text-dark-text-secondary mb-1.5">Password</label>
-                            <input type="password" id="signup-password" value={password} onChange={e => setPassword(e.target.value)} required className="block w-full bg-background dark:bg-dark-surface border-border dark:border-dark-border rounded-lg shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface dark:focus:ring-offset-dark-surface focus:ring-primary focus:border-primary sm:text-sm p-3 transition" placeholder="Create a password" />
-                        </div>
-                        <button type="submit" disabled={isLoading} className="w-full bg-primary-gradient text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-4 focus:ring-primary/50 transition-all duration-300 transform hover:scale-105 shadow-md disabled:bg-slate-400 disabled:transform-none disabled:shadow-none">
-                            {isLoading ? 'Creating Account...' : 'Create Account'}
-                        </button>
-                    </form>
-                    <p className="text-center text-sm text-text-secondary dark:text-dark-text-secondary">
-                        Already have an account? <button onClick={() => changeView('login')} className="font-semibold text-primary hover:text-primary-light">Login</button>
-                    </p>
-                </div>
-            )}
+            {view === 'initial' && renderInitialView()}
+            {view === 'getStarted' && renderGetStartedView()}
+            {view === 'login' && renderLoginView()}
         </div>
     </Modal>
   );

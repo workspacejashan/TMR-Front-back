@@ -35,15 +35,13 @@ function App() {
     suggestedJobs,
     selectedJob,
     quickActions,
-    authError,
     jobPostDetails,
     sendMessage,
     openModal,
     closeModal,
     openJobDetailsModal,
     closeJobDetailsModal,
-    handleSignUp,
-    handleLogin,
+    handleLoginAs,
     handleAction,
     updateProfile,
     updateSkills,
@@ -88,16 +86,6 @@ function App() {
         return <div className="h-full w-full bg-background dark:bg-dark-background"></div>;
     }
   };
-  
-  // Display a full-screen loading spinner during the initial session/profile fetch.
-  // This prevents any UI flicker before the app knows what state to render.
-  if (isLoading && !currentUser && activeModal !== ModalType.AUTH) {
-    return (
-      <div className="h-[100dvh] w-screen bg-background dark:bg-dark-background flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-primary rounded-full animate-spin"></div>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -182,9 +170,7 @@ function App() {
         
         <AuthModal
           isOpen={activeModal === ModalType.AUTH}
-          onLogin={handleLogin}
-          onSignUp={handleSignUp}
-          error={authError}
+          onLoginAs={handleLoginAs}
         />
 
         {currentUser && (

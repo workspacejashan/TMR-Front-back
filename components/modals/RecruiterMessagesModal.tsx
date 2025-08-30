@@ -32,6 +32,7 @@ const RecruiterMessagesModal: React.FC<RecruiterMessagesModalProps> = ({ isOpen,
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevIsOpen = useRef(isOpen);
   
   const selectedConvo = conversations.find(c => c.id === selectedConvoId);
 
@@ -40,35 +41,39 @@ const RecruiterMessagesModal: React.FC<RecruiterMessagesModalProps> = ({ isOpen,
   }, [selectedConvo?.messages]);
   
   useEffect(() => {
-    if (!isOpen) {
-        setSelectedConvoId(null);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      setIsAnimatingOut(false);
-      if (selectedConvo?.status === 'accepted') {
-          inputRef.current?.focus();
-      }
-    } else {
+    if (prevIsOpen.current && !isOpen) {
+      // Animate out
       setIsAnimatingOut(true);
       const timer = setTimeout(() => {
         setIsAnimatingOut(false);
         document.body.style.overflow = '';
+        setSelectedConvoId(null);
       }, 350);
       return () => clearTimeout(timer);
     }
-    return () => { document.body.style.overflow = ''; };
+    
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      setIsAnimatingOut(false); // Ensure this is false on open
+      if (selectedConvo?.status === 'accepted') {
+        inputRef.current?.focus();
+      }
+    }
+
+    prevIsOpen.current = isOpen;
+
+    return () => {
+      // Unmount cleanup
+      document.body.style.overflow = '';
+    };
   }, [isOpen, selectedConvo]);
 
   const handleSend = () => {
-      if (input.trim() && selectedConvoId && selectedConvo?.status === 'accepted') {
-          onSendMessage(selectedConvoId, input.trim());
-          setInput('');
-          inputRef.current?.focus();
-      }
+    if (input.trim() && selectedConvoId) {
+      onSendMessage(selectedConvoId, input.trim());
+      setInput('');
+      inputRef.current?.focus();
+    }
   };
 
   if (!isOpen && !isAnimatingOut) return null;

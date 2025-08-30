@@ -97,7 +97,7 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ messages, isLoa
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-h-0 lg:border-r lg:border-border lg:dark:border-dark-border">
                 {/* Mobile View */}
-                <div className="lg:hidden h-full">
+                <div className="lg:hidden flex-1 flex flex-col min-h-0">
                     {activeView === 'chat' && (
                         <ChatWindow
                             messages={messages}

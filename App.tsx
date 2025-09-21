@@ -3,13 +3,13 @@ import ChatWindow from './components/ChatWindow';
 import RecruiterDashboard from './components/RecruiterDashboard';
 import { useChat } from './hooks/useChat';
 import { ModalType, UserType } from './types';
+import AuthModal from './components/modals/AuthModal';
 
 const OnboardingModal = lazy(() => import('./components/modals/OnboardingModal'));
 const DocumentUploadModal = lazy(() => import('./components/modals/DocumentUploadModal'));
 const JobPreferencesModal = lazy(() => import('./components/modals/JobPreferencesModal'));
 const SkillsAssessmentModal = lazy(() => import('./components/modals/SkillsAssessmentModal'));
 const AvailabilityModal = lazy(() => import('./components/modals/AvailabilityModal'));
-const AuthModal = lazy(() => import('./components/modals/AuthModal'));
 const RecruiterRequestsModal = lazy(() => import('./components/modals/RecruiterRequestsModal'));
 const SuggestedJobsModal = lazy(() => import('./components/modals/SuggestedJobsModal'));
 const PublicProfileModal = lazy(() => import('./components/modals/PublicProfileModal'));
@@ -175,12 +175,12 @@ function App() {
       <div className="h-[100dvh] w-screen">
         {renderContent()}
         
+        <AuthModal
+          isOpen={activeModal === ModalType.AUTH}
+          onLoginAs={handleLoginAs}
+        />
+        
         <Suspense fallback={null}>
-          <AuthModal
-            isOpen={activeModal === ModalType.AUTH}
-            onLoginAs={handleLoginAs}
-          />
-
           {currentUser && (
             <>
               <OnboardingModal 

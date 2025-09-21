@@ -26,6 +26,16 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      external: [
+        'react',
+        // Use a regex to match 'react-dom' and 'react-dom/client' etc.
+        /^react-dom/, 
+        '@google/genai',
+      ]
+    }
+  },
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
   }

@@ -33,15 +33,19 @@ function App() {
     candidateToConnect,
     conversations,
     suggestedJobs,
+    jobSources,
     selectedJob,
     quickActions,
     jobPostDetails,
-    sendMessage,
+    sourcedCandidates,
+    contactedCandidates,
+    engagedCandidates,
     openModal,
     closeModal,
     openJobDetailsModal,
     closeJobDetailsModal,
     handleLoginAs,
+    handleQuickActionClick,
     handleAction,
     updateProfile,
     updateSkills,
@@ -66,17 +70,19 @@ function App() {
         return <RecruiterDashboard 
                   messages={recruiterMessages}
                   isLoading={isLoading}
-                  sendMessage={sendMessage}
                   onActionClick={handleAction}
+                  onQuickActionClick={handleQuickActionClick}
                   onViewProfile={viewCandidateProfile}
                   quickActions={quickActions}
-                  foundCandidates={foundCandidates}
+                  sourcedCandidates={sourcedCandidates}
+                  contactedCandidates={contactedCandidates}
+                  engagedCandidates={engagedCandidates}
                 />;
       case UserType.CANDIDATE:
         return <ChatWindow
                 messages={messages}
                 isLoading={isLoading}
-                sendMessage={sendMessage}
+                onQuickActionClick={handleQuickActionClick}
                 onActionClick={handleAction}
                 quickActions={quickActions}
               />;
@@ -229,6 +235,7 @@ function App() {
           jobs={suggestedJobs}
           isLoading={isJobsLoading}
           openJobDetailsModal={openJobDetailsModal}
+          sources={jobSources}
         />
 
         <PublicProfileModal
@@ -253,6 +260,7 @@ function App() {
             onClose={closeModal}
             initialDetails={jobPostDetails}
             onSearch={findCandidates}
+            // FIX: The prop 'isSearching' was passed an undefined variable 'isSearching'. The correct variable from the useChat hook is 'isFindingCandidates'.
             isSearching={isFindingCandidates}
           />
         )}

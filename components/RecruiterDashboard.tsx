@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { BotIcon, BuildingOfficeIcon, ChatBubbleLeftRightIcon, UsersIcon } from './icons/Icons';
-import { Message, Action, CandidateProfile, ModalType } from '../types';
+import { Message, Action, CandidateProfile } from '../types';
 import ChatWindow from './ChatWindow';
 import CandidateCard from './CandidateCard';
 
 interface RecruiterDashboardProps {
     messages: Message[];
     isLoading: boolean;
-    sendMessage: (text: string) => void;
     onActionClick: (action: Action) => void;
+    onQuickActionClick: (action: Action) => void;
     onViewProfile: (candidate: CandidateProfile) => void;
     quickActions: Action[];
-    foundCandidates: CandidateProfile[];
+    sourcedCandidates: CandidateProfile[];
+    contactedCandidates: CandidateProfile[];
+    engagedCandidates: CandidateProfile[];
 }
 
 const RecruiterHeader: React.FC = () => (
@@ -47,54 +49,66 @@ const BottomNavItem: React.FC<{label: string; icon: React.ReactNode; isActive: b
     );
 };
 
-const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ messages, isLoading, sendMessage, onActionClick, onViewProfile, quickActions, foundCandidates }) => {
+const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ 
+    messages, isLoading, onActionClick, onQuickActionClick, onViewProfile, quickActions, 
+    sourcedCandidates, contactedCandidates, engagedCandidates 
+}) => {
     const [activeView, setActiveView] = useState<'chat' | 'candidates'>('chat');
+    const [activePipelineTab, setActivePipelineTab] = useState<'sourced' | 'contacted' | 'engaged'>('sourced');
 
-    const handleAction = (action: Action) => {
-        if (action.type === 'open_modal' && action.payload?.modalType === ModalType.FOUND_CANDIDATES) {
-            setActiveView('candidates');
-        } else {
-            onActionClick(action);
+    const renderCandidateList = (candidates: CandidateProfile[], emptyMessage: string) => {
+        if (candidates.length > 0) {
+            return candidates.map(c => <CandidateCard key={c.id} candidate={c} onViewProfile={onViewProfile} />)
         }
+        return <div className="text-center p-4 text-sm text-text-secondary dark:text-dark-text-secondary">{emptyMessage}</div>;
     };
 
     const candidatesContent = (
          <div className="flex flex-col h-full bg-slate-50 dark:bg-dark-surface/50">
              <div className="p-4 border-b border-border dark:border-dark-border flex-shrink-0">
                 <h2 className="text-lg font-semibold text-text-primary dark:text-dark-text-primary">
-                    {foundCandidates.length > 0 ? `Found Candidates (${foundCandidates.length})` : 'Candidate Search'}
+                    Candidate Pipeline
                 </h2>
                 <p className="text-sm text-text-secondary dark:text-dark-text-secondary">
-                    {foundCandidates.length > 0 ? 'Review the profiles below' : 'Find profiles matching your criteria.'}
+                    Manage candidates from sourced to engaged.
                 </p>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
-                {foundCandidates.length > 0 ? (
-                    <div className="space-y-4">
-                        {foundCandidates.map(candidate => (
-                            <CandidateCard
-                                key={candidate.id}
-                                candidate={candidate}
-                                onViewProfile={onViewProfile}
-                            />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-background dark:bg-dark-surface rounded-xl border border-dashed border-border dark:border-dark-border">
-                        <BotIcon className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
-                        <h3 className="text-lg font-semibold text-text-primary dark:text-dark-text-primary">Find Your Next Hire</h3>
-                        <p className="text-sm text-text-secondary dark:text-dark-text-secondary mt-1">
-                            Use the chat to start a new search. Found candidates will be displayed here for you to review.
-                        </p>
-                    </div>
-                )}
+
+            {/* Card-like tab navigation */}
+            <div className="p-4 grid grid-cols-3 gap-3 border-b border-border dark:border-dark-border flex-shrink-0 bg-background dark:bg-dark-background/30">
+                <button
+                    onClick={() => setActivePipelineTab('sourced')}
+                    className={`p-3 text-left rounded-xl transition-all border-2 transform hover:-translate-y-0.5 ${activePipelineTab === 'sourced' ? 'bg-primary/5 border-primary shadow-md' : 'bg-surface dark:bg-dark-surface border-transparent hover:border-slate-200 dark:hover:border-dark-border'}`}
+                >
+                    <p className="font-bold text-2xl text-text-primary dark:text-dark-text-primary">{sourcedCandidates.length}</p>
+                    <p className="text-sm font-semibold text-text-secondary dark:text-dark-text-secondary">Sourced</p>
+                </button>
+                <button
+                    onClick={() => setActivePipelineTab('contacted')}
+                    className={`p-3 text-left rounded-xl transition-all border-2 transform hover:-translate-y-0.5 ${activePipelineTab === 'contacted' ? 'bg-primary/5 border-primary shadow-md' : 'bg-surface dark:bg-dark-surface border-transparent hover:border-slate-200 dark:hover:border-dark-border'}`}
+                >
+                    <p className="font-bold text-2xl text-text-primary dark:text-dark-text-primary">{contactedCandidates.length}</p>
+                    <p className="text-sm font-semibold text-text-secondary dark:text-dark-text-secondary">Contacted</p>
+                </button>
+                <button
+                    onClick={() => setActivePipelineTab('engaged')}
+                    className={`p-3 text-left rounded-xl transition-all border-2 transform hover:-translate-y-0.5 ${activePipelineTab === 'engaged' ? 'bg-primary/5 border-primary shadow-md' : 'bg-surface dark:bg-dark-surface border-transparent hover:border-slate-200 dark:hover:border-dark-border'}`}
+                >
+                    <p className="font-bold text-2xl text-text-primary dark:text-dark-text-primary">{engagedCandidates.length}</p>
+                    <p className="text-sm font-semibold text-text-secondary dark:text-dark-text-secondary">Engaged</p>
+                </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {activePipelineTab === 'sourced' && renderCandidateList(sourcedCandidates, "Use the chat to find new candidates.")}
+                {activePipelineTab === 'contacted' && renderCandidateList(contactedCandidates, "No pending connection requests.")}
+                {activePipelineTab === 'engaged' && renderCandidateList(engagedCandidates, "No engaged candidates yet.")}
             </div>
         </div>
     );
 
     return (
         <div className="flex h-full w-full bg-background dark:bg-dark-background flex-col lg:flex-row">
-            {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-h-0 lg:border-r lg:border-border lg:dark:border-dark-border">
                 {/* Mobile View */}
                 <div className="lg:hidden flex-1 flex flex-col min-h-0">
@@ -102,8 +116,8 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ messages, isLoa
                         <ChatWindow
                             messages={messages}
                             isLoading={isLoading}
-                            sendMessage={sendMessage}
-                            onActionClick={handleAction}
+                            onActionClick={onActionClick}
+                            onQuickActionClick={onQuickActionClick}
                             headerContent={<RecruiterHeader />}
                             quickActions={quickActions}
                         />
@@ -115,8 +129,8 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ messages, isLoa
                     <ChatWindow
                         messages={messages}
                         isLoading={isLoading}
-                        sendMessage={sendMessage}
                         onActionClick={onActionClick}
+                        onQuickActionClick={onQuickActionClick}
                         headerContent={<RecruiterHeader />}
                         quickActions={quickActions}
                     />
@@ -124,7 +138,7 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ messages, isLoa
             </main>
 
             {/* Desktop Candidates Sidebar */}
-            <aside className="w-full lg:w-1/3 lg:max-w-sm h-full flex-shrink-0 hidden lg:flex flex-col">
+            <aside className="w-full lg:w-[30rem] h-full flex-shrink-0 hidden lg:flex flex-col">
                 {candidatesContent}
             </aside>
             
@@ -141,7 +155,7 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ messages, isLoa
                     icon={<UsersIcon />}
                     isActive={activeView === 'candidates'}
                     onClick={() => setActiveView('candidates')}
-                    badgeCount={foundCandidates.length > 0 ? foundCandidates.length : 0}
+                    badgeCount={sourcedCandidates.length}
                  />
             </nav>
         </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import Modal from '../Modal';
-import { Job } from '../../types';
+import { Job, JobSource } from '../../types';
 import { BuildingOfficeIcon, GlobeAltIcon } from '../icons/Icons';
 
 interface SuggestedJobsModalProps {
@@ -9,16 +9,17 @@ interface SuggestedJobsModalProps {
   jobs: Job[];
   isLoading: boolean;
   openJobDetailsModal: (job: Job) => void;
+  sources: JobSource[];
 }
 
-const SuggestedJobsModal: React.FC<SuggestedJobsModalProps> = ({ isOpen, onClose, jobs, isLoading, openJobDetailsModal }) => {
+const SuggestedJobsModal: React.FC<SuggestedJobsModalProps> = ({ isOpen, onClose, jobs, isLoading, openJobDetailsModal, sources }) => {
     
     const renderContent = () => {
         if (isLoading) {
             return (
                 <div className="flex flex-col items-center justify-center h-64">
                     <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
-                    <p className="mt-4 text-sm text-text-secondary dark:text-dark-text-secondary">Searching for job matches...</p>
+                    <p className="mt-4 text-sm text-text-secondary dark:text-dark-text-secondary">Searching for real jobs on the web...</p>
                 </div>
             );
         }
@@ -60,6 +61,25 @@ const SuggestedJobsModal: React.FC<SuggestedJobsModalProps> = ({ isOpen, onClose
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 -mr-3">
                 {renderContent()}
             </div>
+
+            {sources && sources.length > 0 && !isLoading && (
+              <div className="mt-6 pt-4 border-t border-border dark:border-dark-border">
+                  <h4 className="text-sm font-semibold text-text-secondary dark:text-dark-text-secondary flex items-center gap-2">
+                      <GlobeAltIcon className="w-4 h-4" />
+                      Sourced from the web via Google Search
+                  </h4>
+                  <ul className="mt-2 space-y-1 text-xs list-disc list-inside">
+                      {sources.map(source => (
+                          <li key={source.uri}>
+                              <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate inline-block max-w-full align-bottom">
+                                  {source.title}
+                              </a>
+                          </li>
+                      ))}
+                  </ul>
+              </div>
+            )}
+
             <div className="pt-6">
                 <button
                     onClick={onClose}

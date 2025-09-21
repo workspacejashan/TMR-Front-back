@@ -1,14 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import ChatMessage from './ChatMessage';
-import { SendIcon, BotIcon } from './icons/Icons';
+import { BotIcon } from './icons/Icons';
 import { Message, Action } from '../types';
 import QuickActionsBar from './QuickActionsBar';
 
 interface ChatWindowProps {
   messages: Message[];
   isLoading: boolean;
-  sendMessage: (text: string) => void;
-  onActionClick: (action: Action) => void;
+  onActionClick: (action: Action) => void; // For actions inside a message bubble
+  onQuickActionClick: (action: Action) => void; // For quick action buttons
   headerContent?: React.ReactNode;
   quickActions: Action[];
 }
@@ -25,10 +25,8 @@ const DefaultHeader: React.FC = () => (
     </div>
 );
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, sendMessage, onActionClick, headerContent, quickActions }) => {
-  const [input, setInput] = useState('');
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onActionClick, onQuickActionClick, headerContent, quickActions }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,19 +35,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, sendMessag
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
-
-  const handleSend = () => {
-    if (input.trim() && !isLoading) {
-      sendMessage(input.trim());
-      setInput('');
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSend();
-    }
-  };
 
   return (
     <div className="flex flex-col h-full bg-background dark:bg-dark-background">
@@ -72,32 +57,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, sendMessag
        {quickActions && quickActions.length > 0 && (
         <QuickActionsBar 
             actions={quickActions} 
-            onActionClick={onActionClick} 
-            onSendMessage={sendMessage}
+            onQuickActionClick={onQuickActionClick}
             isLoading={isLoading} 
         />
       )}
-      <div className={`p-4 bg-surface dark:bg-dark-surface ${!quickActions || quickActions.length === 0 ? 'border-t border-border dark:border-dark-border' : ''}`}>
-        <div className="relative">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
-            className="w-full bg-background dark:bg-dark-border text-text-primary dark:text-dark-text-primary rounded-full py-3 pl-5 pr-16 border border-transparent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface dark:focus:ring-offset-dark-surface focus:ring-primary transition-all"
-            disabled={isLoading}
-          />
-          <button
-            onClick={handleSend}
-            disabled={isLoading || !input.trim()}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary-gradient text-white rounded-full p-2.5 disabled:bg-slate-300 disabled:dark:bg-slate-600 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-110 active:scale-95 disabled:hover:scale-100 shadow-md hover:shadow-lg disabled:shadow-none"
-          >
-            <SendIcon className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

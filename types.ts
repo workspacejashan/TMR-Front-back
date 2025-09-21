@@ -130,3 +130,8 @@ export interface JobSearchCriteria {
     roles: string[];
     location: string;
 }
+
+export interface JobSource {
+    uri: string;
+    title: string;
+}

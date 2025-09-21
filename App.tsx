@@ -1,22 +1,23 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import ChatWindow from './components/ChatWindow';
-import OnboardingModal from './components/modals/OnboardingModal';
-import DocumentUploadModal from './components/modals/DocumentUploadModal';
-import JobPreferencesModal from './components/modals/JobPreferencesModal';
-import SkillsAssessmentModal from './components/modals/SkillsAssessmentModal';
-import AvailabilityModal from './components/modals/AvailabilityModal';
-import AuthModal from './components/modals/AuthModal';
-import RecruiterRequestsModal from './components/modals/RecruiterRequestsModal';
-import SuggestedJobsModal from './components/modals/SuggestedJobsModal';
-import PublicProfileModal from './components/modals/PublicProfileModal';
 import RecruiterDashboard from './components/RecruiterDashboard';
-import RecruiterMessagesModal from './components/modals/RecruiterMessagesModal';
-import ConnectRequestModal from './components/modals/ConnectRequestModal';
-import CandidateMessagesModal from './components/modals/CandidateMessagesModal';
-import JobDetailsModal from './components/modals/JobDetailsModal';
-import FindCandidatesModal from './components/modals/FindCandidatesModal';
 import { useChat } from './hooks/useChat';
 import { ModalType, UserType } from './types';
+
+const OnboardingModal = lazy(() => import('./components/modals/OnboardingModal'));
+const DocumentUploadModal = lazy(() => import('./components/modals/DocumentUploadModal'));
+const JobPreferencesModal = lazy(() => import('./components/modals/JobPreferencesModal'));
+const SkillsAssessmentModal = lazy(() => import('./components/modals/SkillsAssessmentModal'));
+const AvailabilityModal = lazy(() => import('./components/modals/AvailabilityModal'));
+const AuthModal = lazy(() => import('./components/modals/AuthModal'));
+const RecruiterRequestsModal = lazy(() => import('./components/modals/RecruiterRequestsModal'));
+const SuggestedJobsModal = lazy(() => import('./components/modals/SuggestedJobsModal'));
+const PublicProfileModal = lazy(() => import('./components/modals/PublicProfileModal'));
+const RecruiterMessagesModal = lazy(() => import('./components/modals/RecruiterMessagesModal'));
+const ConnectRequestModal = lazy(() => import('./components/modals/ConnectRequestModal'));
+const CandidateMessagesModal = lazy(() => import('./components/modals/CandidateMessagesModal'));
+const JobDetailsModal = lazy(() => import('./components/modals/JobDetailsModal'));
+const FindCandidatesModal = lazy(() => import('./components/modals/FindCandidatesModal'));
 
 function App() {
   const {
@@ -174,112 +175,112 @@ function App() {
       <div className="h-[100dvh] w-screen">
         {renderContent()}
         
-        <AuthModal
-          isOpen={activeModal === ModalType.AUTH}
-          onLoginAs={handleLoginAs}
-        />
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={activeModal === ModalType.AUTH}
+            onLoginAs={handleLoginAs}
+          />
 
-        {currentUser && (
-          <>
-            <OnboardingModal 
-              isOpen={activeModal === ModalType.ONBOARDING_PROFILE}
-              onClose={closeModal}
-              currentUser={currentUser}
-              onSave={updateProfile}
-            />
-            <DocumentUploadModal
-              isOpen={activeModal === ModalType.DOCUMENTS_UPLOAD}
-              onClose={closeModal}
-              documents={currentUser.documents}
-              onUpload={uploadFile}
-              onDelete={deleteFile}
-              onSetVisibility={updateFileVisibility}
-            />
-            <JobPreferencesModal
-              isOpen={activeModal === ModalType.JOB_PREFERENCES}
-              onClose={closeModal}
-              currentUser={currentUser}
-              onSave={updateProfile}
-            />
-            <SkillsAssessmentModal
-              isOpen={activeModal === ModalType.SKILLS_ASSESSMENT}
-              onClose={closeModal}
-              skills={currentUser.skills}
-              onSave={updateSkills}
-            />
-            <AvailabilityModal
-              isOpen={activeModal === ModalType.AVAILABILITY}
-              onClose={closeModal}
-              currentUser={currentUser}
-              onSave={updateProfile}
-            />
-            <CandidateMessagesModal
-              isOpen={activeModal === ModalType.CANDIDATE_MESSAGES}
+          {currentUser && (
+            <>
+              <OnboardingModal 
+                isOpen={activeModal === ModalType.ONBOARDING_PROFILE}
+                onClose={closeModal}
+                currentUser={currentUser}
+                onSave={updateProfile}
+              />
+              <DocumentUploadModal
+                isOpen={activeModal === ModalType.DOCUMENTS_UPLOAD}
+                onClose={closeModal}
+                documents={currentUser.documents}
+                onUpload={uploadFile}
+                onDelete={deleteFile}
+                onSetVisibility={updateFileVisibility}
+              />
+              <JobPreferencesModal
+                isOpen={activeModal === ModalType.JOB_PREFERENCES}
+                onClose={closeModal}
+                currentUser={currentUser}
+                onSave={updateProfile}
+              />
+              <SkillsAssessmentModal
+                isOpen={activeModal === ModalType.SKILLS_ASSESSMENT}
+                onClose={closeModal}
+                skills={currentUser.skills}
+                onSave={updateSkills}
+              />
+              <AvailabilityModal
+                isOpen={activeModal === ModalType.AVAILABILITY}
+                onClose={closeModal}
+                currentUser={currentUser}
+                onSave={updateProfile}
+              />
+              <CandidateMessagesModal
+                isOpen={activeModal === ModalType.CANDIDATE_MESSAGES}
+                onClose={closeModal}
+                conversations={conversations}
+                onSendMessage={sendCandidateMessage}
+              />
+              <RecruiterRequestsModal
+                isOpen={activeModal === ModalType.RECRUITER_REQUESTS}
+                onClose={closeModal}
+                requests={conversations}
+                onApprove={approveConversation}
+                onDeny={denyConversation}
+              />
+            </>
+          )}
+
+          <SuggestedJobsModal
+            isOpen={activeModal === ModalType.SUGGESTED_JOBS}
+            onClose={closeModal}
+            jobs={suggestedJobs}
+            isLoading={isJobsLoading}
+            openJobDetailsModal={openJobDetailsModal}
+            sources={jobSources}
+          />
+
+          <PublicProfileModal
+            isOpen={activeModal === ModalType.PUBLIC_PROFILE && !!(currentUser || selectedCandidate)}
+            onClose={userType === UserType.RECRUITER ? closeCandidateProfile : closeModal}
+            candidateProfile={selectedCandidate ?? currentUser!}
+            openModal={openModal}
+            isRecruiterView={userType === UserType.RECRUITER}
+            openConnectModal={openConnectModal}
+          />
+
+          <RecruiterMessagesModal
+              isOpen={activeModal === ModalType.RECRUITER_MESSAGES}
               onClose={closeModal}
               conversations={conversations}
-              onSendMessage={sendCandidateMessage}
-            />
-            <RecruiterRequestsModal
-              isOpen={activeModal === ModalType.RECRUITER_REQUESTS}
-              onClose={closeModal}
-              requests={conversations}
-              onApprove={approveConversation}
-              onDeny={denyConversation}
-            />
-          </>
-        )}
-
-        <SuggestedJobsModal
-          isOpen={activeModal === ModalType.SUGGESTED_JOBS}
-          onClose={closeModal}
-          jobs={suggestedJobs}
-          isLoading={isJobsLoading}
-          openJobDetailsModal={openJobDetailsModal}
-          sources={jobSources}
-        />
-
-        <PublicProfileModal
-          isOpen={activeModal === ModalType.PUBLIC_PROFILE && !!(currentUser || selectedCandidate)}
-          onClose={userType === UserType.RECRUITER ? closeCandidateProfile : closeModal}
-          candidateProfile={selectedCandidate ?? currentUser!}
-          openModal={openModal}
-          isRecruiterView={userType === UserType.RECRUITER}
-          openConnectModal={openConnectModal}
-        />
-
-        <RecruiterMessagesModal
-            isOpen={activeModal === ModalType.RECRUITER_MESSAGES}
-            onClose={closeModal}
-            conversations={conversations}
-            onSendMessage={sendChatMessage}
-        />
-
-        {userType === UserType.RECRUITER && (
-          <FindCandidatesModal
-            isOpen={activeModal === ModalType.FIND_CANDIDATES_FLOW}
-            onClose={closeModal}
-            initialDetails={jobPostDetails}
-            onSearch={findCandidates}
-            // FIX: The prop 'isSearching' was passed an undefined variable 'isSearching'. The correct variable from the useChat hook is 'isFindingCandidates'.
-            isSearching={isFindingCandidates}
+              onSendMessage={sendChatMessage}
           />
-        )}
 
-        {candidateToConnect && (
-            <ConnectRequestModal
-                isOpen={!!candidateToConnect}
-                onClose={closeConnectModal}
-                candidate={candidateToConnect}
-                onSend={(message) => sendConnectionRequest(candidateToConnect.id, message)}
+          {userType === UserType.RECRUITER && (
+            <FindCandidatesModal
+              isOpen={activeModal === ModalType.FIND_CANDIDATES_FLOW}
+              onClose={closeModal}
+              initialDetails={jobPostDetails}
+              onSearch={findCandidates}
+              isSearching={isFindingCandidates}
             />
-        )}
-        
-        <JobDetailsModal 
-            isOpen={!!selectedJob}
-            onClose={closeJobDetailsModal}
-            job={selectedJob}
-        />
+          )}
 
+          {candidateToConnect && (
+              <ConnectRequestModal
+                  isOpen={!!candidateToConnect}
+                  onClose={closeConnectModal}
+                  candidate={candidateToConnect}
+                  onSend={(message) => sendConnectionRequest(candidateToConnect.id, message)}
+              />
+          )}
+          
+          <JobDetailsModal 
+              isOpen={!!selectedJob}
+              onClose={closeJobDetailsModal}
+              job={selectedJob}
+          />
+        </Suspense>
       </div>
     </>
   );

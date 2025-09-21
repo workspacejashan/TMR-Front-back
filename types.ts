@@ -124,14 +124,3 @@ export interface Job {
     description: string;
     applyUrl: string;
 }
-
-// FIX: Added JobSearchCriteria to fix import error in geminiService.
-export interface JobSearchCriteria {
-    roles: string[];
-    location: string;
-}
-
-export interface JobSource {
-    uri: string;
-    title: string;
-}

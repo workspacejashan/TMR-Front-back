@@ -1,7 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Message, MessageAuthor, ModalType, UserType, CandidateProfile, JobPostDetails, Conversation, Action, Skill, UploadedFile, DocumentVisibility, Job, JobSource } from '../types';
-import { aiService } from '../services/geminiService';
-import { jobSearchService } from '../services/jobSearchService';
+import { Message, MessageAuthor, ModalType, UserType, CandidateProfile, JobPostDetails, Conversation, Action, Skill, UploadedFile, DocumentVisibility, Job } from '../types';
 import { mockCandidates } from '../data/mockCandidates'; // For recruiter search
 import { mockConversations } from '../data/mockConversations';
 
@@ -79,7 +77,6 @@ export const useChat = () => {
   // For Candidate user
   const [currentUser, setCurrentUser] = useState<CandidateProfile | null>(null);
   const [suggestedJobs, setSuggestedJobs] = useState<Job[]>([]);
-  const [jobSources, setJobSources] = useState<JobSource[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isJobsLoading, setIsJobsLoading] = useState(false);
   
@@ -128,17 +125,30 @@ export const useChat = () => {
     }
     setIsJobsLoading(true);
     setSuggestedJobs([]);
-    setJobSources([]);
     try {
-      const { jobs, sources } = await jobSearchService.findJobs({
-        roles: currentUser.roles,
-        location: currentUser.location || '',
-      });
-      setSuggestedJobs(jobs);
-      setJobSources(sources);
+      // Simulate network delay and return mock data
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const mockJobs: Job[] = [
+          {
+              id: 'mock-job-1',
+              title: `Registered Nurse - ${currentUser.location}`,
+              company: 'General Hospital',
+              location: currentUser.location || 'USA',
+              description: 'A great opportunity for a skilled Registered Nurse to join our team in a dynamic and supportive environment. We are looking for a dedicated professional with a passion for patient care.',
+              applyUrl: '#'
+          },
+          {
+              id: 'mock-job-2',
+              title: 'Clinical Nurse Specialist',
+              company: 'Healthcare Professionals Inc.',
+              location: currentUser.location || 'USA',
+              description: 'We are looking for a Clinical Nurse Specialist to provide expert advice, leadership, and support to our nursing staff and to ensure the delivery of high-quality patient care.',
+              applyUrl: '#'
+          }
+      ];
+      setSuggestedJobs(mockJobs);
     } catch (error) {
       console.error("Failed to fetch suggested jobs:", error);
-      // Set an error state for the jobs list to inform the user
       setSuggestedJobs([{
           id: 'error-1',
           title: 'Could Not Load Jobs',
@@ -147,9 +157,7 @@ export const useChat = () => {
           description: 'There was an error while trying to fetch job suggestions. Please try again later.',
           applyUrl: '#'
       }]);
-      setJobSources([]);
     } finally {
-      // This ensures the loading spinner is turned off, regardless of success or failure.
       setIsJobsLoading(false);
     }
   }, [currentUser]);
@@ -422,7 +430,6 @@ export const useChat = () => {
     candidateToConnect,
     conversations,
     suggestedJobs,
-    jobSources,
     selectedJob,
     quickActions,
     jobPostDetails,

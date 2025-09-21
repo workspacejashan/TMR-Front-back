@@ -34,7 +34,6 @@ function App() {
     candidateToConnect,
     conversations,
     suggestedJobs,
-    jobSources,
     selectedJob,
     quickActions,
     jobPostDetails,
@@ -237,7 +236,6 @@ function App() {
             jobs={suggestedJobs}
             isLoading={isJobsLoading}
             openJobDetailsModal={openJobDetailsModal}
-            sources={jobSources}
           />
 
           <PublicProfileModal
